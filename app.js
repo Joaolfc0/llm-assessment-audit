@@ -300,9 +300,7 @@
 
     function renderLeftPanel(output) {
         // Diagram
-        // For GitHub Pages, use relative path from aea folder
-        const diagramPath = '../' + output.diagramPath;
-        DOM.diagramImage.src = diagramPath;
+        DOM.diagramImage.src = output.diagramPath;
         DOM.diagramImage.alt = 'Diagrama de Arquitetura';
         
         // Description

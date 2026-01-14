@@ -139,7 +139,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "PNG",
         criterion: "accuracy",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "component_matching",
@@ -158,7 +158,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "PNG",
         criterion: "clarity",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "element_identification",
@@ -187,7 +187,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "PNG",
         criterion: "completeness",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "coverage_main_components",
@@ -211,7 +211,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "PNG",
         criterion: "consistency",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "notation_uniformity",
@@ -235,7 +235,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "PNG",
         criterion: "level_of_detail",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "element_detail",
@@ -260,7 +260,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "SVG",
         criterion: "accuracy",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "component_matching",
@@ -279,7 +279,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "SVG",
         criterion: "clarity",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "element_identification",
@@ -308,7 +308,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "SVG",
         criterion: "completeness",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "coverage_main_components",
@@ -332,7 +332,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "SVG",
         criterion: "consistency",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "notation_uniformity",
@@ -356,7 +356,7 @@ const OUTPUTS = [
         model: "ChatGPT",
         format: "SVG",
         criterion: "level_of_detail",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "element_detail",
@@ -381,7 +381,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "PNG",
         criterion: "accuracy",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "component_matching",
@@ -400,7 +400,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "PNG",
         criterion: "clarity",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "element_identification",
@@ -429,7 +429,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "PNG",
         criterion: "completeness",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "coverage_main_components",
@@ -453,7 +453,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "PNG",
         criterion: "consistency",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "notation_uniformity",
@@ -477,7 +477,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "PNG",
         criterion: "level_of_detail",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.png",
+        diagramPath: "assets/gs_cloud_architecture_diagram.png",
         guidelines: [
             {
                 id: "element_detail",
@@ -502,7 +502,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "SVG",
         criterion: "accuracy",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "component_matching",
@@ -521,7 +521,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "SVG",
         criterion: "clarity",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "element_identification",
@@ -550,7 +550,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "SVG",
         criterion: "completeness",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "coverage_main_components",
@@ -574,7 +574,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "SVG",
         criterion: "consistency",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "notation_uniformity",
@@ -598,7 +598,7 @@ const OUTPUTS = [
         model: "Gemini",
         format: "SVG",
         criterion: "level_of_detail",
-        diagramPath: "2.0/geoserver/assets/gs_cloud_architecture_diagram.svg",
+        diagramPath: "assets/gs_cloud_architecture_diagram.svg",
         guidelines: [
             {
                 id: "element_detail",
