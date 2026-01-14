@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEA: Architectural Evaluation Audit</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Welcome Screen -->
+    <div id="welcome-screen" class="screen">
+        <div class="welcome-container">
+            <header class="welcome-header">
+                <h1 class="welcome-title">Architectural Evaluation Audit</h1>
+            </header>
+            
+            <div class="welcome-content">
+                <div class="intro-card">
+                    <h3>Bem-vindo à Auditoria</h3>
+                    <p>Neste formulário, você realizará a auditoria de revisões técnicas aplicadas a diagramas de software. O objetivo é validar a qualidade de análises de design arquitetural em projetos de microsserviços.</p>
+                    
+                    <div class="flow-info">
+                        <h4>Fluxo de Avaliação</h4>
+                        <p>Para cada caso apresentado, você terá acesso ao:</p>
+                        <ul>
+                            <li><strong>Critério de Avaliação</strong> — O que está sendo analisado</li>
+                            <li><strong>Diagrama e Descrição</strong> — O artefato arquitetural</li>
+                            <li><strong>Análise Técnica</strong> — A revisão a ser auditada</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="task-info">
+                        <h4>Sua Tarefa</h4>
+                        <p>Avaliar se a Análise Técnica fornecida é precisa e fundamentada, utilizando as diretrizes (guidelines) específicas.</p>
+                    </div>
+                    
+                    <div class="guidelines-info">
+                        <h4>Orientações</h4>
+                        <ul>
+                            <li>Julgue com base no material fornecido</li>
+                            <li>Utilize a escala de concordância (1-5)</li>
+                            <li>Identifique falhas: alucinações, omissões ou erros lógicos</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="login-card">
+                    <h3>Identificação</h3>
+                    <p>Por favor, insira seu email para iniciar ou continuar a auditoria.</p>
+                    
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="user-email">Email</label>
+                            <input 
+                                type="email" 
+                                id="user-email" 
+                                name="email" 
+                                placeholder="seu.email@exemplo.com"
+                                required
+                            >
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span id="btn-text">Iniciar Auditoria</span>
+                            <span id="btn-continue" style="display: none;">Continuar Auditoria</span>
+                        </button>
+                    </form>
+                    
+                    <div id="progress-info" class="progress-info" style="display: none;">
+                        <p>Você completou <strong><span id="completed-count">0</span> de 20</strong> avaliações.</p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Main Audit Screen -->
+    <div id="audit-screen" class="screen audit-screen" style="display: none;">
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+            <div class="progress-header">
+                <span class="progress-label">Avaliação <span id="current-num">1</span> de <span id="total-num">20</span></span>
+                <span class="progress-id" id="output-id">OUT_001</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 5%;"></div>
+            </div>
+            <div class="progress-actions">
+                <button id="save-exit-btn" class="btn btn-secondary btn-sm">
+                    Salvar e Sair
+                </button>
+            </div>
+        </div>
+
+        <!-- Split View Container -->
+        <div class="split-container">
+            <!-- Left Panel: Diagram and Description -->
+            <div class="left-panel">
+                <div class="panel-header">
+                    <h2>Diagrama e Descrição</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="diagram-section">
+                        <h3>Diagrama Arquitetural</h3>
+                        <div class="diagram-container">
+                            <img id="diagram-image" src="" alt="Diagrama de Arquitetura" class="diagram-img">
+                        </div>
+                    </div>
+                    
+                    <div class="description-section">
+                        <h3>Descrição Textual</h3>
+                        <div class="description-content" id="description-content">
+                            <!-- Description text will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Evaluation Questionnaire -->
+            <div class="right-panel">
+                <div class="panel-header">
+                    <h2>Questionário de Auditoria</h2>
+                </div>
+                <div class="panel-content">
+                    <!-- Criterion Info -->
+                    <div class="criterion-section">
+                        <h3 id="criterion-name">Accuracy</h3>
+                        <p id="criterion-description" class="criterion-desc">
+                            <!-- Criterion description will be inserted here -->
+                        </p>
+                    </div>
+
+                    <!-- Guidelines Form -->
+                    <form id="audit-form">
+                        <div id="guidelines-container">
+                            <!-- Guidelines will be dynamically inserted here -->
+                        </div>
+
+                        <!-- Navigation Buttons -->
+                        <div class="form-navigation">
+                            <button type="button" id="prev-btn" class="btn btn-secondary" disabled>
+                                ← Anterior
+                            </button>
+                            <button type="submit" id="next-btn" class="btn btn-primary">
+                                Próximo →
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completion Screen -->
+    <div id="completion-screen" class="screen" style="display: none;">
+        <div class="completion-container">
+            <div class="completion-icon">&#10003;</div>
+            <h1>Auditoria Concluída!</h1>
+            <p>Obrigado por participar desta pesquisa acadêmica.</p>
+            <p>Suas respostas foram enviadas com sucesso.</p>
+            
+            <div class="completion-stats">
+                <div class="stat-item">
+                    <span class="stat-number">20</span>
+                    <span class="stat-label">Avaliações Completadas</span>
+                </div>
+            </div>
+            
+            <button id="restart-btn" class="btn btn-primary">
+                Iniciar Nova Auditoria
+            </button>
+        </div>
+    </div>
+
+    <!-- Guideline Template -->
+    <template id="guideline-template">
+        <div class="guideline-card" data-guideline-id="">
+            <div class="guideline-header">
+                <h4 class="guideline-name"></h4>
+                <p class="guideline-question"></p>
+            </div>
+            
+            <div class="llm-analysis">
+                <h5>Análise Técnica</h5>
+                <div class="analysis-score">
+                    <span class="score-label">Nota atribuída (escala de 1 a 4):</span>
+                    <span class="score-value"></span>
+                </div>
+                <div class="score-scale-legend">
+                    <small>1 = Poor | 2 = Fair | 3 = Good | 4 = Excellent</small>
+                </div>
+                <div class="analysis-justification">
+                    <p class="justification-text"></p>
+                </div>
+            </div>
+            
+            <div class="audit-questions">
+                <div class="question-group">
+                    <label class="question-label">
+                        Em uma escala de 1 a 5, o quanto você concorda com a nota e justificativa da análise para esta guideline?
+                    </label>
+                    <div class="likert-scale">
+                        <div class="likert-labels">
+                            <span>Discordo totalmente</span>
+                            <span>Concordo totalmente</span>
+                        </div>
+                        <div class="likert-options">
+                            <label class="likert-option">
+                                <input type="radio" name="" value="1" required>
+                                <span class="likert-circle">1</span>
+                            </label>
+                            <label class="likert-option">
+                                <input type="radio" name="" value="2">
+                                <span class="likert-circle">2</span>
+                            </label>
+                            <label class="likert-option">
+                                <input type="radio" name="" value="3">
+                                <span class="likert-circle">3</span>
+                            </label>
+                            <label class="likert-option">
+                                <input type="radio" name="" value="4">
+                                <span class="likert-circle">4</span>
+                            </label>
+                            <label class="likert-option">
+                                <input type="radio" name="" value="5">
+                                <span class="likert-circle">5</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="question-group">
+                    <label class="question-label">
+                        Analise o texto justificativo. Marque todas as inconsistências que encontrar em relação ao diagrama e à descrição original:
+                    </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-option correct-option">
+                            <input type="checkbox" name="" value="correct" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Fiel e Correta</strong>
+                                <small>A justificativa é sólida e não apresenta erros.</small>
+                            </span>
+                        </label>
+                        <label class="checkbox-option error-option">
+                            <input type="checkbox" name="" value="hallucination" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Alucinação de Conteúdo</strong>
+                                <small>Menciona algo inexistente no diagrama/descrição.</small>
+                            </span>
+                        </label>
+                        <label class="checkbox-option error-option">
+                            <input type="checkbox" name="" value="omission" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Omissão Grave</strong>
+                                <small>Deixou de ver o óbvio no diagrama/descrição.</small>
+                            </span>
+                        </label>
+                        <label class="checkbox-option error-option">
+                            <input type="checkbox" name="" value="misinterpretation" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Erro de Interpretação</strong>
+                                <small>Viu o componente, mas entendeu a função/conexão errado.</small>
+                            </span>
+                        </label>
+                        <label class="checkbox-option error-option">
+                            <input type="checkbox" name="" value="contradiction" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Contradição Interna</strong>
+                                <small>O texto da análise é confuso e se contradiz.</small>
+                            </span>
+                        </label>
+                        <label class="checkbox-option error-option">
+                            <input type="checkbox" name="" value="vagueness" class="issue-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">
+                                <strong>Genericismo (Vagueza)</strong>
+                                <small>O texto é muito "raso" e não prova que a análise "entendeu" o diagrama.</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question-group comment-group">
+                    <label class="question-label">
+                        Comentários <span class="required-note">(obrigatório se identificou algum erro)</span>
+                    </label>
+                    <textarea 
+                        name="" 
+                        class="comment-textarea" 
+                        placeholder="Descreva os problemas encontrados ou adicione observações relevantes..."
+                        rows="3"
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
