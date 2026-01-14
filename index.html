@@ -17,22 +17,22 @@
             
             <div class="welcome-content">
                 <div class="intro-card">
-                    <h3>Bem-vindo à Auditoria</h3>
+                    <h3>Bem-vindo à auditoria</h3>
                     <p>Neste formulário, você realizará a auditoria de revisões técnicas aplicadas a diagramas de software. O objetivo é validar a qualidade de análises de design arquitetural em projetos de microsserviços.</p>
                     
                     <div class="flow-info">
-                        <h4>Fluxo de Avaliação</h4>
-                        <p>Para cada caso apresentado, você terá acesso ao:</p>
+                        <h4>Fluxo de avaliação</h4>
+                        <p>Para cada caso apresentado, a tela será dividida em dois painéis:</p>
                         <ul>
-                            <li><strong>Critério de Avaliação</strong> — O que está sendo analisado</li>
-                            <li><strong>Diagrama e Descrição</strong> — O artefato arquitetural</li>
-                            <li><strong>Análise Técnica</strong> — A revisão a ser auditada</li>
+                            <li><strong>À esquerda:</strong> o diagrama e sua descrição textual</li>
+                            <li><strong>À direita:</strong> o critério de avaliação e suas diretrizes (de 2 a 4)</li>
                         </ul>
+                        <p>Cada diretriz contém uma pergunta sobre o critério e uma análise correspondente — essa análise é o material que você deve auditar.</p>
                     </div>
                     
                     <div class="task-info">
-                        <h4>Sua Tarefa</h4>
-                        <p>Avaliar se a Análise Técnica fornecida é precisa e fundamentada, utilizando as diretrizes (guidelines) específicas.</p>
+                        <h4>Sua tarefa</h4>
+                        <p>Avaliar se a análise técnica fornecida é precisa e fundamentada, utilizando as diretrizes (guidelines) específicas.</p>
                     </div>
                     
                     <div class="guidelines-info">
@@ -47,7 +47,7 @@
                 
                 <div class="login-card">
                     <h3>Identificação</h3>
-                    <p>Por favor, insira seu email para iniciar ou continuar a auditoria.</p>
+                    <p>Por favor, insira seu email para iniciar ou continuar a sessão.</p>
                     
                     <form id="login-form">
                         <div class="form-group">
@@ -61,8 +61,8 @@
                             >
                         </div>
                         <button type="submit" class="btn btn-primary">
-                            <span id="btn-text">Iniciar Auditoria</span>
-                            <span id="btn-continue" style="display: none;">Continuar Auditoria</span>
+                            <span id="btn-text">Iniciar</span>
+                            <span id="btn-continue" style="display: none;">Continuar</span>
                         </button>
                     </form>
                     
@@ -88,7 +88,7 @@
             </div>
             <div class="progress-actions">
                 <button id="save-exit-btn" class="btn btn-secondary btn-sm">
-                    Salvar e Sair
+                    Salvar e sair
                 </button>
             </div>
         </div>
@@ -98,18 +98,18 @@
             <!-- Left Panel: Diagram and Description -->
             <div class="left-panel">
                 <div class="panel-header">
-                    <h2>Diagrama e Descrição</h2>
+                    <h2>Diagrama e descrição</h2>
                 </div>
                 <div class="panel-content">
                     <div class="diagram-section">
-                        <h3>Diagrama Arquitetural</h3>
+                        <h3>Diagrama arquitetural</h3>
                         <div class="diagram-container">
                             <img id="diagram-image" src="" alt="Diagrama de Arquitetura" class="diagram-img">
                         </div>
                     </div>
                     
                     <div class="description-section">
-                        <h3>Descrição Textual</h3>
+                        <h3>Descrição textual</h3>
                         <div class="description-content" id="description-content">
                             <!-- Description text will be inserted here -->
                         </div>
@@ -120,7 +120,7 @@
             <!-- Right Panel: Evaluation Questionnaire -->
             <div class="right-panel">
                 <div class="panel-header">
-                    <h2>Questionário de Auditoria</h2>
+                    <h2>Questionário de auditoria</h2>
                 </div>
                 <div class="panel-content">
                     <!-- Criterion Info -->
@@ -139,9 +139,6 @@
 
                         <!-- Navigation Buttons -->
                         <div class="form-navigation">
-                            <button type="button" id="prev-btn" class="btn btn-secondary" disabled>
-                                ← Anterior
-                            </button>
                             <button type="submit" id="next-btn" class="btn btn-primary">
                                 Próximo →
                             </button>
@@ -156,19 +153,19 @@
     <div id="completion-screen" class="screen" style="display: none;">
         <div class="completion-container">
             <div class="completion-icon">&#10003;</div>
-            <h1>Auditoria Concluída!</h1>
+            <h1>Auditoria concluída!</h1>
             <p>Obrigado por participar desta pesquisa acadêmica.</p>
             <p>Suas respostas foram enviadas com sucesso.</p>
             
             <div class="completion-stats">
                 <div class="stat-item">
                     <span class="stat-number">20</span>
-                    <span class="stat-label">Avaliações Completadas</span>
+                    <span class="stat-label">Avaliações completadas</span>
                 </div>
             </div>
             
             <button id="restart-btn" class="btn btn-primary">
-                Iniciar Nova Auditoria
+                Iniciar nova auditoria
             </button>
         </div>
     </div>
@@ -182,7 +179,7 @@
             </div>
             
             <div class="llm-analysis">
-                <h5>Análise Técnica</h5>
+                <h5>Análise técnica</h5>
                 <div class="analysis-score">
                     <span class="score-label">Nota atribuída (escala de 1 a 4):</span>
                     <span class="score-value"></span>
@@ -239,7 +236,7 @@
                             <input type="checkbox" name="" value="correct" class="issue-checkbox">
                             <span class="checkbox-custom"></span>
                             <span class="checkbox-text">
-                                <strong>Fiel e Correta</strong>
+                                <strong>Fiel e correta</strong>
                                 <small>A justificativa é sólida e não apresenta erros.</small>
                             </span>
                         </label>
@@ -247,7 +244,7 @@
                             <input type="checkbox" name="" value="hallucination" class="issue-checkbox">
                             <span class="checkbox-custom"></span>
                             <span class="checkbox-text">
-                                <strong>Alucinação de Conteúdo</strong>
+                                <strong>Alucinação de conteúdo</strong>
                                 <small>Menciona algo inexistente no diagrama/descrição.</small>
                             </span>
                         </label>
@@ -255,15 +252,15 @@
                             <input type="checkbox" name="" value="omission" class="issue-checkbox">
                             <span class="checkbox-custom"></span>
                             <span class="checkbox-text">
-                                <strong>Omissão Grave</strong>
-                                <small>Deixou de ver o óbvio no diagrama/descrição.</small>
+                                <strong>Omissão</strong>
+                                <small>Deixou de ver e não mencionou algo importante para análise no diagrama/descrição.</small>
                             </span>
                         </label>
                         <label class="checkbox-option error-option">
                             <input type="checkbox" name="" value="misinterpretation" class="issue-checkbox">
                             <span class="checkbox-custom"></span>
                             <span class="checkbox-text">
-                                <strong>Erro de Interpretação</strong>
+                                <strong>Erro de interpretação</strong>
                                 <small>Viu o componente, mas entendeu a função/conexão errado.</small>
                             </span>
                         </label>
@@ -271,7 +268,7 @@
                             <input type="checkbox" name="" value="contradiction" class="issue-checkbox">
                             <span class="checkbox-custom"></span>
                             <span class="checkbox-text">
-                                <strong>Contradição Interna</strong>
+                                <strong>Contradição interna</strong>
                                 <small>O texto da análise é confuso e se contradiz.</small>
                             </span>
                         </label>

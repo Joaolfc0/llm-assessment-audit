@@ -149,7 +149,6 @@
         criterionDescription: document.getElementById('criterion-description'),
         guidelinesContainer: document.getElementById('guidelines-container'),
         auditForm: document.getElementById('audit-form'),
-        prevBtn: document.getElementById('prev-btn'),
         nextBtn: document.getElementById('next-btn'),
         
         // Completion
@@ -301,7 +300,7 @@
     function renderLeftPanel(output) {
         // Diagram
         DOM.diagramImage.src = output.diagramPath;
-        DOM.diagramImage.alt = 'Diagrama de Arquitetura';
+        DOM.diagramImage.alt = 'Diagrama de arquitetura';
         
         // Description
         const descriptionHtml = window.AEA_DATA.description
@@ -546,10 +545,8 @@
     }
 
     function updateNavigationButtons() {
-        DOM.prevBtn.disabled = state.currentIndex === 0;
-        
         if (state.currentIndex === CONFIG.TOTAL_OUTPUTS - 1) {
-            DOM.nextBtn.textContent = 'Finalizar ✓';
+            DOM.nextBtn.textContent = 'Finalizar';
         } else {
             DOM.nextBtn.textContent = 'Próximo →';
         }
@@ -561,7 +558,6 @@
     
     function initAuditScreen() {
         DOM.auditForm.addEventListener('submit', handleNext);
-        DOM.prevBtn.addEventListener('click', handlePrevious);
         DOM.saveExitBtn.addEventListener('click', handleSaveAndExit);
     }
 
@@ -585,9 +581,8 @@
         // Show saving feedback
         showSavingFeedback(true, 'Enviando dados para o servidor...');
         
-        // Disable navigation buttons during submission
+        // Disable navigation button during submission
         DOM.nextBtn.disabled = true;
-        DOM.prevBtn.disabled = true;
         
         try {
             // Send to Google Apps Script
@@ -596,8 +591,7 @@
             // Hide saving overlay
             showSavingFeedback(false);
             
-            // Re-enable buttons
-            DOM.prevBtn.disabled = state.currentIndex === 0;
+            // Re-enable button
             DOM.nextBtn.disabled = false;
             
             if (result.success) {
@@ -649,8 +643,7 @@
             console.error('Error during submission:', error);
             showSavingFeedback(false);
             
-            // Re-enable buttons
-            DOM.prevBtn.disabled = state.currentIndex === 0;
+            // Re-enable button
             DOM.nextBtn.disabled = false;
             
             // Still allow navigation since data is saved locally
@@ -669,19 +662,6 @@
         }
     }
 
-    function handlePrevious() {
-        if (state.currentIndex > 0) {
-            // Save current response before going back
-            const response = collectCurrentResponse();
-            state.responses[response.outputId] = response;
-            
-            state.currentIndex--;
-            saveState();
-            renderCurrentOutput();
-            // Scroll to top of right panel
-            DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
-        }
-    }
 
     function handleSaveAndExit() {
         // Save current response
