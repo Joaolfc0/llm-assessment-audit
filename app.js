@@ -395,37 +395,43 @@
 
     function setupCheckboxLogic(card, guidelineId) {
         const correctCheckbox = card.querySelector('input[value="correct"]');
-        const errorCheckboxes = card.querySelectorAll('.error-option input');
-        const commentGroup = card.querySelector('.comment-group');
-        const textarea = card.querySelector('.comment-textarea');
+        const errorCheckboxes = card.querySelectorAll('.error-option input.issue-checkbox');
+        const otherCheckbox = card.querySelector('input[value="other"]');
+        const otherInputGroup = card.querySelector('.other-input-group');
+        const otherInput = card.querySelector('.other-input');
         
-        // When "correct" is checked, uncheck all errors
+        // When "correct" is checked, uncheck all errors and hide other input
         correctCheckbox.addEventListener('change', function() {
             if (this.checked) {
                 errorCheckboxes.forEach(cb => cb.checked = false);
-                commentGroup.classList.remove('required');
-                textarea.removeAttribute('required');
+                if (otherInputGroup) {
+                    otherInputGroup.style.display = 'none';
+                    otherInput.value = '';
+                }
             }
         });
         
-        // When any error is checked, uncheck "correct" and make comment required
+        // When any error is checked, uncheck "correct"
         errorCheckboxes.forEach(errorCb => {
             errorCb.addEventListener('change', function() {
                 if (this.checked) {
                     correctCheckbox.checked = false;
                 }
-                
-                // Check if any error is selected
-                const anyErrorSelected = Array.from(errorCheckboxes).some(cb => cb.checked);
-                if (anyErrorSelected) {
-                    commentGroup.classList.add('required');
-                    textarea.setAttribute('required', 'required');
-                } else {
-                    commentGroup.classList.remove('required');
-                    textarea.removeAttribute('required');
-                }
             });
         });
+        
+        // Handle "other" checkbox - show/hide text input
+        if (otherCheckbox && otherInputGroup && otherInput) {
+            otherCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    otherInputGroup.style.display = 'block';
+                    otherInput.focus();
+                } else {
+                    otherInputGroup.style.display = 'none';
+                    otherInput.value = '';
+                }
+            });
+        }
     }
 
     function loadSavedResponse(outputId) {
@@ -455,6 +461,16 @@
                 });
             }
             
+            // Other text
+            if (guidelineResponse.otherText) {
+                const otherInputGroup = card.querySelector('.other-input-group');
+                const otherInput = card.querySelector('.other-input');
+                if (otherInputGroup && otherInput) {
+                    otherInputGroup.style.display = 'block';
+                    otherInput.value = guidelineResponse.otherText;
+                }
+            }
+            
             // Comment
             if (guidelineResponse.comment) {
                 const textarea = card.querySelector(`textarea[name="comment_${guidelineResponse.guidelineId}"]`);
@@ -481,6 +497,11 @@
             const issueCheckboxes = card.querySelectorAll(`input[name="issues_${guidelineId}"]:checked`);
             const issues = Array.from(issueCheckboxes).map(cb => cb.value);
             
+            // Get "other" text if checked
+            const otherInputGroup = card.querySelector('.other-input-group');
+            const otherInput = card.querySelector('.other-input');
+            const otherText = otherInputGroup && otherInputGroup.style.display !== 'none' && otherInput ? otherInput.value.trim() : '';
+            
             // Get comment
             const textarea = card.querySelector(`textarea[name="comment_${guidelineId}"]`);
             const comment = textarea ? textarea.value.trim() : '';
@@ -489,6 +510,7 @@
                 guidelineId,
                 likertScore,
                 issues,
+                otherText,
                 comment
             });
         });
@@ -517,17 +539,6 @@
                 isValid = false;
                 if (!firstInvalidElement) {
                     firstInvalidElement = card.querySelector('.likert-scale');
-                }
-            }
-            
-            // Check if any error is selected but no comment
-            const errorCheckboxes = card.querySelectorAll('.error-option input:checked');
-            const textarea = card.querySelector(`textarea[name="comment_${guidelineId}"]`);
-            
-            if (errorCheckboxes.length > 0 && (!textarea.value || !textarea.value.trim())) {
-                isValid = false;
-                if (!firstInvalidElement) {
-                    firstInvalidElement = textarea;
                 }
             }
         });
@@ -761,6 +772,7 @@
         const errLogic = issues.includes('misinterpretation') ? 1 : 0; // Mapped to Err_Logic
         const errContradiction = issues.includes('contradiction') ? 1 : 0;
         const errVagueness = issues.includes('vagueness') ? 1 : 0;
+        const errOther = issues.includes('other') ? 1 : 0;
         
         return {
             Output_ID: outputData.id,
@@ -777,6 +789,8 @@
             Err_Logic: errLogic,
             Err_Contradiction: errContradiction,
             Err_Vagueness: errVagueness,
+            Err_Other: errOther,
+            Err_Other_Text: guidelineResponse.otherText || '',
             Expert_Comment: guidelineResponse.comment || ''
         };
     }

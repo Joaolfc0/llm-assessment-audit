@@ -173,127 +173,116 @@
     <!-- Guideline Template -->
     <template id="guideline-template">
         <div class="guideline-card" data-guideline-id="">
-            <div class="guideline-header">
-                <h4 class="guideline-name"></h4>
-                <p class="guideline-question"></p>
-            </div>
+            <h4 class="guideline-name"></h4>
+            <p class="guideline-question"></p>
             
             <div class="llm-analysis">
-                <h5>Análise técnica</h5>
                 <div class="analysis-score">
                     <span class="score-label">Nota atribuída (escala de 1 a 4):</span>
                     <span class="score-value"></span>
                 </div>
-                <div class="score-scale-legend">
-                    <small>1 = Poor | 2 = Fair | 3 = Good | 4 = Excellent</small>
-                </div>
-                <div class="analysis-justification">
-                    <p class="justification-text"></p>
-                </div>
+                <p class="justification-text"></p>
             </div>
             
-            <div class="audit-questions">
-                <div class="question-group">
-                    <label class="question-label">
-                        Em uma escala de 1 a 5, o quanto você concorda com a nota e justificativa da análise para esta guideline?
-                    </label>
-                    <div class="likert-scale">
-                        <div class="likert-labels">
-                            <span>Discordo totalmente</span>
-                            <span>Concordo totalmente</span>
-                        </div>
-                        <div class="likert-options">
-                            <label class="likert-option">
-                                <input type="radio" name="" value="1" required>
-                                <span class="likert-circle">1</span>
-                            </label>
-                            <label class="likert-option">
-                                <input type="radio" name="" value="2">
-                                <span class="likert-circle">2</span>
-                            </label>
-                            <label class="likert-option">
-                                <input type="radio" name="" value="3">
-                                <span class="likert-circle">3</span>
-                            </label>
-                            <label class="likert-option">
-                                <input type="radio" name="" value="4">
-                                <span class="likert-circle">4</span>
-                            </label>
-                            <label class="likert-option">
-                                <input type="radio" name="" value="5">
-                                <span class="likert-circle">5</span>
-                            </label>
-                        </div>
-                    </div>
+            <label class="question-label">Concordância com a nota atribuída:</label>
+            <div class="likert-scale">
+                <div class="likert-labels">
+                    <span>Discordo totalmente</span>
+                    <span>Concordo totalmente</span>
                 </div>
-                
-                <div class="question-group">
-                    <label class="question-label">
-                        Analise o texto justificativo. Marque todas as inconsistências que encontrar em relação ao diagrama e à descrição original:
+                <div class="likert-options">
+                    <label class="likert-option">
+                        <input type="radio" name="" value="1" required>
+                        <span class="likert-circle">1</span>
                     </label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-option correct-option">
-                            <input type="checkbox" name="" value="correct" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Fiel e correta</strong>
-                                <small>A justificativa é sólida e não apresenta erros.</small>
-                            </span>
-                        </label>
-                        <label class="checkbox-option error-option">
-                            <input type="checkbox" name="" value="hallucination" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Alucinação de conteúdo</strong>
-                                <small>Menciona algo inexistente no diagrama/descrição.</small>
-                            </span>
-                        </label>
-                        <label class="checkbox-option error-option">
-                            <input type="checkbox" name="" value="omission" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Omissão</strong>
-                                <small>Deixou de ver e não mencionou algo importante para análise no diagrama/descrição.</small>
-                            </span>
-                        </label>
-                        <label class="checkbox-option error-option">
-                            <input type="checkbox" name="" value="misinterpretation" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Erro de interpretação</strong>
-                                <small>Viu o componente, mas entendeu a função/conexão errado.</small>
-                            </span>
-                        </label>
-                        <label class="checkbox-option error-option">
-                            <input type="checkbox" name="" value="contradiction" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Contradição interna</strong>
-                                <small>O texto da análise é confuso e se contradiz.</small>
-                            </span>
-                        </label>
-                        <label class="checkbox-option error-option">
-                            <input type="checkbox" name="" value="vagueness" class="issue-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">
-                                <strong>Genericismo (Vagueza)</strong>
-                                <small>O texto é muito "raso" e não prova que a análise "entendeu" o diagrama.</small>
-                            </span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="question-group comment-group">
-                    <label class="question-label">
-                        Comentários <span class="required-note">(obrigatório se identificou algum erro)</span>
+                    <label class="likert-option">
+                        <input type="radio" name="" value="2">
+                        <span class="likert-circle">2</span>
                     </label>
-                    <textarea 
-                        name="" 
-                        class="comment-textarea" 
-                        placeholder="Descreva os problemas encontrados ou adicione observações relevantes..."
-                        rows="3"
-                    ></textarea>
+                    <label class="likert-option">
+                        <input type="radio" name="" value="3">
+                        <span class="likert-circle">3</span>
+                    </label>
+                    <label class="likert-option">
+                        <input type="radio" name="" value="4">
+                        <span class="likert-circle">4</span>
+                    </label>
                 </div>
+            </div>
+
+            <label class="question-label">Inconsistências identificadas na justificativa:</label>
+            <div class="checkbox-group">
+                <label class="checkbox-option correct-option">
+                    <input type="checkbox" name="" value="correct" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Fiel e correta</strong>
+                        <small>A justificativa é sólida e não apresenta erros.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="hallucination" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Alucinação de conteúdo</strong>
+                        <small>Menciona algo inexistente no diagrama/descrição.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="omission" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Omissão</strong>
+                        <small>Deixou de ver e não mencionou algo importante para análise no diagrama/descrição.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="misinterpretation" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Erro de interpretação</strong>
+                        <small>Viu o componente, mas entendeu a função/conexão errado.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="contradiction" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Contradição interna</strong>
+                        <small>O texto da análise é confuso e se contradiz.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="vagueness" class="issue-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Genericismo (vagueza)</strong>
+                        <small>O texto é muito "raso" e não prova que a análise "entendeu" o diagrama.</small>
+                    </span>
+                </label>
+                <label class="checkbox-option error-option">
+                    <input type="checkbox" name="" value="other" class="issue-checkbox other-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">
+                        <strong>Outro</strong>
+                        <small>Outro tipo de erro não listado acima.</small>
+                    </span>
+                </label>
+            </div>
+
+            <div class="other-input-group" style="display: none;">
+                <label class="question-label">Especifique o outro erro:</label>
+                <input type="text" class="other-input" placeholder="Descreva o tipo de erro...">
+            </div>
+
+            <div class="comment-group">
+                <label class="question-label">Explicação dos erros encontrados</label>
+                <textarea 
+                    name="" 
+                    class="comment-textarea" 
+                    placeholder="Descreva os problemas encontrados..."
+                    rows="2"
+                ></textarea>
             </div>
         </div>
     </template>
