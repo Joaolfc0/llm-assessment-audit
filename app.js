@@ -221,7 +221,7 @@
         
         const email = DOM.userEmail.value.trim();
         if (!email || !email.includes('@')) {
-            alert('Por favor, insira um email válido.');
+            alert('Please enter a valid email.');
             return;
         }
         
@@ -300,7 +300,7 @@
     function renderLeftPanel(output) {
         // Diagram
         DOM.diagramImage.src = output.diagramPath;
-        DOM.diagramImage.alt = 'Diagrama de arquitetura';
+        DOM.diagramImage.alt = 'Architecture Diagram';
         
         // Description
         const descriptionHtml = window.AEA_DATA.description
@@ -557,9 +557,9 @@
 
     function updateNavigationButtons() {
         if (state.currentIndex === CONFIG.TOTAL_OUTPUTS - 1) {
-            DOM.nextBtn.textContent = 'Finalizar';
+            DOM.nextBtn.textContent = 'Finish';
         } else {
-            DOM.nextBtn.textContent = 'Próximo →';
+            DOM.nextBtn.textContent = 'Next →';
         }
     }
 
@@ -577,7 +577,7 @@
         
         // Validate
         if (!validateCurrentResponse()) {
-            alert('Por favor, preencha todos os campos obrigatórios.\n\nNota: Se você identificou algum erro na análise, o campo de comentários é obrigatório.');
+            alert('Please fill in all required fields.');
             return;
         }
         
@@ -590,7 +590,7 @@
         saveState();
         
         // Show saving feedback
-        showSavingFeedback(true, 'Enviando dados para o servidor...');
+        showSavingFeedback(true, 'Sending data to server...');
         
         // Disable navigation button during submission
         DOM.nextBtn.disabled = true;
@@ -607,7 +607,7 @@
             
             if (result.success) {
                 // Show success toast
-                showSuccessToast('Dados salvos com sucesso!');
+                showSuccessToast('Data saved successfully!');
                 
                 // Small delay to let user see the success message
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -626,7 +626,7 @@
             } else if (!result.skipped) {
                 // Show error but still allow navigation (data is saved locally)
                 console.warn('Backend save had issues, but data is saved locally');
-                showSuccessToast('Dados salvos localmente.');
+                showSuccessToast('Data saved locally.');
                 
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
@@ -658,7 +658,7 @@
             DOM.nextBtn.disabled = false;
             
             // Still allow navigation since data is saved locally
-            showSuccessToast('Dados salvos localmente.');
+            showSuccessToast('Data saved locally.');
             
             await new Promise(resolve => setTimeout(resolve, 500));
             
@@ -680,7 +680,7 @@
         state.responses[response.outputId] = response;
         saveState();
         
-        alert('Seu progresso foi salvo! Você pode continuar depois usando o mesmo email.');
+        alert('Your progress has been saved! You can continue later using the same email.');
         showScreen('welcome');
         
         // Reset email input to show progress
@@ -695,7 +695,7 @@
     /**
      * Shows a loading/saving overlay with status message
      */
-    function showSavingFeedback(show, message = 'Salvando dados...', isError = false) {
+    function showSavingFeedback(show, message = 'Saving data...', isError = false) {
         let overlay = document.getElementById('saving-overlay');
         
         if (!overlay) {
@@ -730,7 +730,7 @@
     /**
      * Shows a success toast notification
      */
-    function showSuccessToast(message = 'Dados salvos com sucesso!') {
+    function showSuccessToast(message = 'Data saved successfully!') {
         let toast = document.getElementById('success-toast');
         
         if (!toast) {
