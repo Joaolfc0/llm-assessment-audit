@@ -12,7 +12,7 @@
     const CONFIG = {
         STORAGE_KEY: 'aea_audit_data',
         GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwGAEhk92TnfPNFjxubD9HH-VFhIffh7xEib4gtTmjYTNYUJlwwxxoRLNvX5BXpWEFD/exec',
-        TOTAL_OUTPUTS: 20
+        TOTAL_OUTPUTS: 10
     };
 
     // =========================================
