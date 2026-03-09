@@ -373,12 +373,17 @@ textarea::placeholder {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-sm);
 }
 
 .progress-label {
     font-weight: 600;
     color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.progress-label strong {
+    color: var(--primary-color);
+    font-size: 1.1rem;
 }
 
 .progress-id {
@@ -388,20 +393,6 @@ textarea::placeholder {
     background: var(--bg-tertiary);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-}
-
-.progress-bar {
-    height: 8px;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-    border-radius: var(--radius-sm);
-    transition: width var(--transition-normal);
 }
 
 .progress-actions {
@@ -1185,4 +1176,189 @@ textarea::placeholder {
 
 .success-toast.error::before {
     content: "⚠";
+}
+
+/* =============================================
+   Tutorial / Guided Tour
+   ============================================= */
+
+/* Floating Help Button */
+.tutorial-help-btn {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: var(--font-serif);
+    cursor: pointer;
+    z-index: 999;
+    box-shadow: var(--shadow-lg);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    line-height: 1;
+}
+
+.tutorial-help-btn:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-xl);
+}
+
+.tutorial-help-btn.pulse {
+    animation: helpPulse 2s ease-in-out 3;
+}
+
+@keyframes helpPulse {
+    0%, 100% { box-shadow: var(--shadow-lg); }
+    50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0.25), var(--shadow-lg); }
+}
+
+/* Overlay — covers entire viewport */
+.tutorial-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+/* Spotlight — creates the cutout via a huge box-shadow */
+.tutorial-spotlight {
+    position: fixed;
+    z-index: 1001;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    transition: top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease;
+    pointer-events: none;
+}
+
+.tutorial-spotlight.no-target {
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+}
+
+/* Tooltip */
+.tutorial-tooltip {
+    position: fixed;
+    z-index: 1002;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    max-width: 400px;
+    width: max-content;
+    box-shadow: var(--shadow-xl);
+    pointer-events: auto;
+    animation: tooltipIn 0.25s ease-out;
+}
+
+@keyframes tooltipIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.tutorial-tooltip-title {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.tutorial-tooltip-body {
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-lg);
+}
+
+.tutorial-tooltip-body strong {
+    color: var(--text-primary);
+}
+
+.tutorial-tooltip-body .tutorial-emphasis {
+    display: block;
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--warning-light);
+    border-left: 3px solid var(--warning-color);
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Arrow */
+.tutorial-arrow {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--bg-primary);
+    transform: rotate(45deg);
+}
+
+.tutorial-arrow.arrow-left {
+    left: -7px;
+    top: 28px;
+}
+
+.tutorial-arrow.arrow-right {
+    right: -7px;
+    top: 28px;
+}
+
+.tutorial-arrow.arrow-top {
+    top: -7px;
+    left: 28px;
+}
+
+.tutorial-arrow.arrow-bottom {
+    bottom: -7px;
+    left: 28px;
+}
+
+/* Nav row inside tooltip */
+.tutorial-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.tutorial-nav-step {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.tutorial-nav-buttons {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.tutorial-nav .btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 0.875rem;
+}
+
+.tutorial-btn-skip {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-family: var(--font-sans);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    transition: color var(--transition-fast);
+}
+
+.tutorial-btn-skip:hover {
+    color: var(--text-primary);
 }

@@ -11,8 +11,7 @@
     // =========================================
     const CONFIG = {
         STORAGE_KEY: 'aea_audit_data',
-        GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwGAEhk92TnfPNFjxubD9HH-VFhIffh7xEib4gtTmjYTNYUJlwwxxoRLNvX5BXpWEFD/exec',
-        TOTAL_OUTPUTS: 10
+        GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzWs1Ex8l3K3_qdm2l7k4yrInvHVM2o0l5e8h__GToA1P-Zqr79qXwQ1t6wYglMfU-L/exec'
     };
 
     // =========================================
@@ -45,29 +44,43 @@
     /**
      * Generate a deterministic shuffle based on email
      */
-    function generateShuffledOrder(email) {
-        // Create array of indices [0, 1, 2, ..., 19]
-        const indices = Array.from({ length: CONFIG.TOTAL_OUTPUTS }, (_, i) => i);
-        
-        // Use email as seed for pseudo-random shuffle
-        let seed = 0;
-        for (let i = 0; i < email.length; i++) {
-            seed = ((seed << 5) - seed) + email.charCodeAt(i);
-            seed = seed & seed;
+    function getTotalOutputs() {
+        return window.AEA_DATA.outputs.length;
+    }
+
+    /**
+     * Fetch per-output evaluation counts from the backend.
+     * Returns an object like { "OUT_001": 3, "OUT_005": 0 } or null on failure.
+     */
+    async function fetchOutputCounts() {
+        try {
+            const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL);
+            return await response.json();
+        } catch (err) {
+            console.warn('Could not fetch output counts:', err);
+            return null;
         }
-        
-        // Seeded shuffle
-        const seededRandom = () => {
-            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-            return seed / 0x7fffffff;
-        };
-        
-        for (let i = indices.length - 1; i > 0; i--) {
-            const j = Math.floor(seededRandom() * (i + 1));
-            [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+
+    /**
+     * Build an ordering that puts under-evaluated outputs first.
+     * Outputs with < 2 evaluations are shuffled and placed before the rest.
+     */
+    function generatePrioritizedOrder(counts) {
+        const needsMore = [];
+        const hasEnough = [];
+
+        for (let i = 0; i < getTotalOutputs(); i++) {
+            const outputId = window.AEA_DATA.outputs[i].id;
+            const count = (counts && counts[outputId]) || 0;
+            if (count < 2) {
+                needsMore.push(i);
+            } else {
+                hasEnough.push(i);
+            }
         }
-        
-        return indices;
+
+        return [...shuffleArray(needsMore), ...shuffleArray(hasEnough)];
     }
 
     /**
@@ -133,12 +146,11 @@
         progressInfo: document.getElementById('progress-info'),
         completedCount: document.getElementById('completed-count'),
         
-        // Progress Bar
-        currentNum: document.getElementById('current-num'),
-        totalNum: document.getElementById('total-num'),
+        // Status Bar
+        submittedCount: document.getElementById('submitted-count'),
         outputId: document.getElementById('output-id'),
-        progressFill: document.getElementById('progress-fill'),
         saveExitBtn: document.getElementById('save-exit-btn'),
+        finalCompletedCount: document.getElementById('final-completed-count'),
         
         // Left Panel
         diagramImage: document.getElementById('diagram-image'),
@@ -170,12 +182,15 @@
         switch (screenId) {
             case 'welcome':
                 DOM.welcomeScreen.style.display = 'block';
+                showHelpButton(false);
                 break;
             case 'audit':
                 DOM.auditScreen.style.display = 'flex';
+                showHelpButton(true);
                 break;
             case 'completion':
                 DOM.completionScreen.style.display = 'flex';
+                showHelpButton(false);
                 break;
         }
     }
@@ -216,7 +231,7 @@
         return data.responses ? Object.keys(data.responses).length : 0;
     }
 
-    function handleLogin(e) {
+    async function handleLogin(e) {
         e.preventDefault();
         
         const email = DOM.userEmail.value.trim();
@@ -224,8 +239,7 @@
             alert('Please enter a valid email.');
             return;
         }
-        
-        // Try to load existing progress
+
         const existing = loadState(email);
         
         if (existing) {
@@ -237,10 +251,21 @@
                 startTime: new Date()
             };
         } else {
-            // New user
+            // Show loading state while fetching counts
+            const submitBtn = DOM.loginForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            DOM.btnText.textContent = 'Loading...';
+            DOM.btnContinue.textContent = 'Loading...';
+
+            const counts = await fetchOutputCounts();
+
+            submitBtn.disabled = false;
+            DOM.btnText.textContent = 'Start';
+            DOM.btnContinue.textContent = 'Continue';
+
             state = {
                 userEmail: email,
-                shuffledOrder: generateShuffledOrder(email),
+                shuffledOrder: generatePrioritizedOrder(counts),
                 currentIndex: 0,
                 responses: {},
                 startTime: new Date()
@@ -249,9 +274,9 @@
         
         saveState();
         
-        // Check if already completed
-        if (getCompletedCount() >= CONFIG.TOTAL_OUTPUTS) {
-            showScreen('completion');
+        // Check if already completed all outputs
+        if (getCompletedCount() >= getTotalOutputs()) {
+            showCompletionScreen();
         } else {
             showScreen('audit');
             renderCurrentOutput();
@@ -262,13 +287,15 @@
     // Audit Screen Logic
     // =========================================
     
+    let firstRenderDone = false;
+
     function renderCurrentOutput() {
         const outputIndex = state.shuffledOrder[state.currentIndex];
         const output = window.AEA_DATA.outputs[outputIndex];
         const criterion = window.AEA_DATA.criteria[output.criterion];
         
-        // Update progress bar
-        updateProgressBar();
+        // Update status bar
+        updateStatusBar();
         
         // Update left panel
         renderLeftPanel(output);
@@ -281,20 +308,19 @@
         
         // Update navigation buttons
         updateNavigationButtons();
+
+        if (!firstRenderDone) {
+            firstRenderDone = true;
+            autoShowTutorialIfNeeded();
+        }
     }
 
-    function updateProgressBar() {
-        const current = state.currentIndex + 1;
-        const total = CONFIG.TOTAL_OUTPUTS;
+    function updateStatusBar() {
         const outputIndex = state.shuffledOrder[state.currentIndex];
         const output = window.AEA_DATA.outputs[outputIndex];
         
-        DOM.currentNum.textContent = current;
-        DOM.totalNum.textContent = total;
+        DOM.submittedCount.textContent = getCompletedCount();
         DOM.outputId.textContent = output.id;
-        
-        const percentage = (current / total) * 100;
-        DOM.progressFill.style.width = `${percentage}%`;
     }
 
     function renderLeftPanel(output) {
@@ -556,7 +582,7 @@
     }
 
     function updateNavigationButtons() {
-        if (state.currentIndex === CONFIG.TOTAL_OUTPUTS - 1) {
+        if (state.currentIndex === getTotalOutputs() - 1) {
             DOM.nextBtn.textContent = 'Finish';
         } else {
             DOM.nextBtn.textContent = 'Next →';
@@ -613,7 +639,7 @@
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 // Navigate
-                if (state.currentIndex < CONFIG.TOTAL_OUTPUTS - 1) {
+                if (state.currentIndex < getTotalOutputs() - 1) {
                     state.currentIndex++;
                     saveState();
                     renderCurrentOutput();
@@ -621,7 +647,7 @@
                     DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
                 } else {
                     // Completed all
-                    showScreen('completion');
+                    showCompletionScreen();
                 }
             } else if (!result.skipped) {
                 // Show error but still allow navigation (data is saved locally)
@@ -631,23 +657,23 @@
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 // Navigate anyway (local save is successful)
-                if (state.currentIndex < CONFIG.TOTAL_OUTPUTS - 1) {
+                if (state.currentIndex < getTotalOutputs() - 1) {
                     state.currentIndex++;
                     saveState();
                     renderCurrentOutput();
                     DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
                 } else {
-                    showScreen('completion');
+                    showCompletionScreen();
                 }
             } else {
                 // Skipped (no URL configured) - just navigate
-                if (state.currentIndex < CONFIG.TOTAL_OUTPUTS - 1) {
+                if (state.currentIndex < getTotalOutputs() - 1) {
                     state.currentIndex++;
                     saveState();
                     renderCurrentOutput();
                     DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
                 } else {
-                    showScreen('completion');
+                    showCompletionScreen();
                 }
             }
         } catch (error) {
@@ -662,13 +688,13 @@
             
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            if (state.currentIndex < CONFIG.TOTAL_OUTPUTS - 1) {
+            if (state.currentIndex < getTotalOutputs() - 1) {
                 state.currentIndex++;
                 saveState();
                 renderCurrentOutput();
                 DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
             } else {
-                showScreen('completion');
+                showCompletionScreen();
             }
         }
     }
@@ -865,6 +891,11 @@
     // Completion Screen Logic
     // =========================================
     
+    function showCompletionScreen() {
+        DOM.finalCompletedCount.textContent = getCompletedCount();
+        showScreen('completion');
+    }
+
     function initCompletionScreen() {
         DOM.restartBtn.addEventListener('click', handleRestart);
     }
@@ -893,6 +924,276 @@
     }
 
     // =========================================
+    // Tutorial / Guided Tour
+    // =========================================
+
+    const TUTORIAL_SEEN_KEY = 'aea_tutorial_seen';
+
+    const TUTORIAL_STEPS = [
+        {
+            target: null,
+            title: 'Welcome!',
+            body: 'Quick walkthrough of the interface. This will only take a moment.',
+            position: 'center'
+        },
+        {
+            target: '.left-panel',
+            title: 'Reference material',
+            body: 'On the left you have the <strong>architecture diagram</strong> and its <strong>textual description</strong>. Use them to verify the analysis on the right.',
+            position: 'right'
+        },
+        {
+            target: '.llm-analysis',
+            title: 'The analysis',
+            body: 'This box contains the <strong>analysis you need to audit</strong>: a score and its justification.'
+                + '<span class="tutorial-emphasis">You are evaluating this text, not the diagram.</span>'
+                + 'Check whether it accurately reflects the reference material on the left.',
+            position: 'left',
+            scrollIntoView: true
+        },
+        {
+            target: '.likert-scale',
+            title: 'Your response',
+            body: 'Rate how much you <strong>agree</strong> with the assigned score based on the justification. Below, flag any issues you found in the text.',
+            position: 'left',
+            scrollIntoView: true
+        },
+        {
+            target: null,
+            title: 'All set!',
+            body: 'Click the <strong>?</strong> button in the bottom-right corner anytime to see this again.',
+            position: 'center'
+        }
+    ];
+
+    let tutorialState = { active: false, step: 0 };
+    let tutorialEls = {};
+
+    function createTutorialDOM() {
+        if (tutorialEls.overlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'tutorial-overlay';
+        overlay.style.display = 'none';
+
+        const spotlight = document.createElement('div');
+        spotlight.className = 'tutorial-spotlight';
+        spotlight.style.display = 'none';
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tutorial-tooltip';
+        tooltip.style.display = 'none';
+        tooltip.innerHTML = `
+            <div class="tutorial-arrow"></div>
+            <div class="tutorial-tooltip-title"></div>
+            <div class="tutorial-tooltip-body"></div>
+            <div class="tutorial-nav">
+                <button class="tutorial-btn-skip">Skip</button>
+                <span class="tutorial-nav-step"></span>
+                <div class="tutorial-nav-buttons">
+                    <button class="btn btn-secondary btn-sm tutorial-btn-back">Back</button>
+                    <button class="btn btn-primary btn-sm tutorial-btn-next">Continue</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(spotlight);
+        document.body.appendChild(tooltip);
+
+        tutorialEls = {
+            overlay,
+            spotlight,
+            tooltip,
+            arrow: tooltip.querySelector('.tutorial-arrow'),
+            title: tooltip.querySelector('.tutorial-tooltip-title'),
+            body: tooltip.querySelector('.tutorial-tooltip-body'),
+            stepLabel: tooltip.querySelector('.tutorial-nav-step'),
+            btnBack: tooltip.querySelector('.tutorial-btn-back'),
+            btnNext: tooltip.querySelector('.tutorial-btn-next'),
+            btnSkip: tooltip.querySelector('.tutorial-btn-skip')
+        };
+
+        tutorialEls.btnNext.addEventListener('click', nextTutorialStep);
+        tutorialEls.btnBack.addEventListener('click', prevTutorialStep);
+        tutorialEls.btnSkip.addEventListener('click', endTutorial);
+        overlay.addEventListener('click', endTutorial);
+    }
+
+    function startTutorial() {
+        createTutorialDOM();
+        tutorialState = { active: true, step: 0 };
+        tutorialEls.overlay.style.display = 'block';
+        showTutorialStep(0);
+    }
+
+    function endTutorial() {
+        if (!tutorialState.active) return;
+        tutorialState.active = false;
+        tutorialEls.overlay.style.display = 'none';
+        tutorialEls.spotlight.style.display = 'none';
+        tutorialEls.tooltip.style.display = 'none';
+        localStorage.setItem(TUTORIAL_SEEN_KEY, '1');
+    }
+
+    function nextTutorialStep() {
+        if (tutorialState.step < TUTORIAL_STEPS.length - 1) {
+            showTutorialStep(tutorialState.step + 1);
+        } else {
+            endTutorial();
+        }
+    }
+
+    function prevTutorialStep() {
+        if (tutorialState.step > 0) {
+            showTutorialStep(tutorialState.step - 1);
+        }
+    }
+
+    function showTutorialStep(index) {
+        tutorialState.step = index;
+        const step = TUTORIAL_STEPS[index];
+
+        tutorialEls.title.textContent = step.title;
+        tutorialEls.body.innerHTML = step.body;
+        tutorialEls.stepLabel.textContent = `${index + 1} / ${TUTORIAL_STEPS.length}`;
+
+        tutorialEls.btnBack.style.display = index === 0 ? 'none' : 'inline-flex';
+        tutorialEls.btnNext.textContent = index === TUTORIAL_STEPS.length - 1 ? 'Got it' : 'Continue';
+
+        if (!step.target) {
+            positionCentered();
+        } else {
+            positionAtTarget(step);
+        }
+
+        tutorialEls.tooltip.style.display = 'block';
+    }
+
+    function positionCentered() {
+        tutorialEls.spotlight.className = 'tutorial-spotlight no-target';
+        tutorialEls.spotlight.style.display = 'block';
+        tutorialEls.spotlight.style.top = '50%';
+        tutorialEls.spotlight.style.left = '50%';
+        tutorialEls.spotlight.style.width = '0';
+        tutorialEls.spotlight.style.height = '0';
+
+        tutorialEls.arrow.className = 'tutorial-arrow';
+        tutorialEls.arrow.style.display = 'none';
+
+        const tt = tutorialEls.tooltip;
+        tt.style.top = '50%';
+        tt.style.left = '50%';
+        tt.style.transform = 'translate(-50%, -50%)';
+    }
+
+    function positionAtTarget(step) {
+        const el = document.querySelector(step.target);
+        if (!el) { positionCentered(); return; }
+
+        if (step.scrollIntoView) {
+            const panelContent = el.closest('.panel-content');
+            if (panelContent) {
+                const elTop = el.offsetTop - panelContent.offsetTop;
+                panelContent.scrollTo({ top: elTop - 40, behavior: 'instant' });
+            }
+        }
+
+        requestAnimationFrame(() => {
+            const rect = el.getBoundingClientRect();
+            const pad = 8;
+
+            const sl = tutorialEls.spotlight;
+            sl.className = 'tutorial-spotlight';
+            sl.style.display = 'block';
+            sl.style.top = (rect.top - pad) + 'px';
+            sl.style.left = (rect.left - pad) + 'px';
+            sl.style.width = (rect.width + pad * 2) + 'px';
+            sl.style.height = (rect.height + pad * 2) + 'px';
+
+            placeTooltip(rect, step.position);
+        });
+    }
+
+    function placeTooltip(targetRect, preferredPos) {
+        const tt = tutorialEls.tooltip;
+        const arrow = tutorialEls.arrow;
+        tt.style.transform = 'none';
+
+        tt.style.display = 'block';
+        const ttRect = tt.getBoundingClientRect();
+        const gap = 18;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        let top, left, arrowClass;
+
+        if (preferredPos === 'right') {
+            top = targetRect.top + targetRect.height / 2 - ttRect.height / 2;
+            left = targetRect.right + gap;
+            arrowClass = 'tutorial-arrow arrow-left';
+            if (left + ttRect.width > vw - 16) {
+                left = targetRect.left - ttRect.width - gap;
+                arrowClass = 'tutorial-arrow arrow-right';
+            }
+        } else {
+            left = targetRect.left - ttRect.width - gap;
+            top = targetRect.top;
+            arrowClass = 'tutorial-arrow arrow-right';
+            if (left < 16) {
+                left = targetRect.right + gap;
+                arrowClass = 'tutorial-arrow arrow-left';
+            }
+        }
+
+        top = Math.max(16, Math.min(top, vh - ttRect.height - 16));
+        left = Math.max(16, Math.min(left, vw - ttRect.width - 16));
+
+        tt.style.top = top + 'px';
+        tt.style.left = left + 'px';
+
+        arrow.className = arrowClass;
+        arrow.style.display = 'block';
+
+        const arrowTop = Math.max(18, Math.min(
+            targetRect.top + targetRect.height / 2 - top,
+            ttRect.height - 30
+        ));
+        arrow.style.top = arrowTop + 'px';
+    }
+
+    function initTutorial() {
+        const helpBtn = document.getElementById('tutorial-help-btn');
+        helpBtn.addEventListener('click', startTutorial);
+
+        window.addEventListener('resize', function() {
+            if (tutorialState.active) {
+                showTutorialStep(tutorialState.step);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!tutorialState.active) return;
+            if (e.key === 'Escape') endTutorial();
+            else if (e.key === 'ArrowRight') nextTutorialStep();
+            else if (e.key === 'ArrowLeft') prevTutorialStep();
+        });
+    }
+
+    function showHelpButton(visible) {
+        const btn = document.getElementById('tutorial-help-btn');
+        btn.style.display = visible ? 'block' : 'none';
+        if (visible && !localStorage.getItem(TUTORIAL_SEEN_KEY)) {
+            btn.classList.add('pulse');
+        }
+    }
+
+    function autoShowTutorialIfNeeded() {
+        if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) {
+            setTimeout(startTutorial, 400);
+        }
+    }
+
+    // =========================================
     // Initialization
     // =========================================
     
@@ -900,6 +1201,7 @@
         initWelcomeScreen();
         initAuditScreen();
         initCompletionScreen();
+        initTutorial();
         
         // Check URL params for direct access (optional)
         const urlParams = new URLSearchParams(window.location.search);

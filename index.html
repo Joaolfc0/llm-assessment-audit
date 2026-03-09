@@ -67,7 +67,7 @@
                     </form>
                     
                     <div id="progress-info" class="progress-info" style="display: none;">
-                        <p>You completed <strong><span id="completed-count">0</span> of 10</strong> evaluations.</p>
+                        <p>You have <strong><span id="completed-count">0</span></strong> evaluations submitted.</p>
                     </div>
                 </div>
             </div>
@@ -77,14 +77,11 @@
 
     <!-- Main Audit Screen -->
     <div id="audit-screen" class="screen audit-screen" style="display: none;">
-        <!-- Progress Bar -->
+        <!-- Status Bar -->
         <div class="progress-bar-container">
             <div class="progress-header">
-                <span class="progress-label">Evaluation <span id="current-num">1</span> of <span id="total-num">10</span></span>
+                <span class="progress-label">Answers submitted: <strong id="submitted-count">0</strong></span>
                 <span class="progress-id" id="output-id">OUT_001</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill" style="width: 5%;"></div>
             </div>
             <div class="progress-actions">
                 <button id="save-exit-btn" class="btn btn-secondary btn-sm">
@@ -159,7 +156,7 @@
             
             <div class="completion-stats">
                 <div class="stat-item">
-                    <span class="stat-number">10</span>
+                    <span class="stat-number" id="final-completed-count">0</span>
                     <span class="stat-label">Evaluations completed</span>
                 </div>
             </div>
@@ -287,6 +284,9 @@
             </div>
         </div>
     </template>
+
+    <!-- Floating Help Button -->
+    <button id="tutorial-help-btn" class="tutorial-help-btn" title="How to use this page" style="display: none;">?</button>
 
     <script src="data.js"></script>
     <script src="app.js"></script>
