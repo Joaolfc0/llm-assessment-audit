@@ -11,7 +11,9 @@
     // =========================================
     const CONFIG = {
         STORAGE_KEY: 'aea_audit_data',
-        GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzWs1Ex8l3K3_qdm2l7k4yrInvHVM2o0l5e8h__GToA1P-Zqr79qXwQ1t6wYglMfU-L/exec'
+        // Blind review / local-only mode: keep empty to disable Google Sheets networking.
+        // To re-enable uploads for the main study, deploy `google-apps-script.js` and set this URL.
+        GOOGLE_SCRIPT_URL: ''
     };
 
     // =========================================
@@ -54,6 +56,10 @@
      */
     async function fetchOutputCounts() {
         try {
+            if (!CONFIG.GOOGLE_SCRIPT_URL) {
+                // Offline: counts are not fetched; the UI will still work locally.
+                return null;
+            }
             const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL);
             return await response.json();
         } catch (err) {

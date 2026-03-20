@@ -2,6 +2,9 @@
  * AEA: Architectural Evaluation Audit
  * Google Apps Script — paste this into your Apps Script editor.
  *
+ * This backend is only required to upload submissions to Google Sheets for the main study.
+ * Blind peer review / local exploration should not depend on it.
+ *
  * doPost: receives one guideline row and appends it to the sheet.
  * doGet:  returns JSON with the number of unique experts per Output_ID.
  *
