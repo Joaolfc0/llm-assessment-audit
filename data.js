@@ -619,9 +619,22 @@ const OUTPUTS = [
     }
 ];
 
+const DIAGRAMS = [
+    {
+        id: "geoserver-cloud",
+        title: "GeoServer Cloud",
+        description: PROJECT_DESCRIPTION,
+        imagePath: "assets/gs_cloud_architecture_diagram.png",
+        textualPath: "assets/gs_cloud_architecture_diagram.svg",
+        textualFormat: "SVG",
+        outputIds: OUTPUTS.map(output => output.id)
+    }
+];
+
 // Export for use in app.js
 window.AEA_DATA = {
     description: PROJECT_DESCRIPTION,
     criteria: CRITERIA,
+    diagrams: DIAGRAMS,
     outputs: OUTPUTS
 };

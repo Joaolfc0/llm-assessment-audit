@@ -8,54 +8,53 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Welcome Screen -->
     <div id="welcome-screen" class="screen">
         <div class="welcome-container">
             <header class="welcome-header">
                 <h1 class="welcome-title">Architectural Evaluation Audit</h1>
             </header>
-            
+
             <div class="welcome-content">
                 <div class="intro-card">
-                    <h3>Welcome to the audit</h3>
-                    <p>In this form, you will audit technical reviews applied to software diagrams. The goal is to validate the quality of architectural design analyses in microservices projects.</p>
-                    
+                    <h3>Welcome to the evaluation</h3>
+                    <p>This study is divided into three phases for a single assigned diagram. You may save and stop at any time, then continue later with the same email.</p>
+
                     <div class="flow-info">
-                        <h4>Evaluation flow</h4>
-                        <p>For each case presented, the screen will be divided into two panels:</p>
-                        <ul>
-                            <li><strong>On the left:</strong> the diagram and its textual description</li>
-                            <li><strong>On the right:</strong> the evaluation criterion and its guidelines (2 to 4)</li>
-                        </ul>
-                        <p>Each guideline contains a question about the criterion and a corresponding analysis — this analysis is the material you must audit.</p>
+                        <h4>Phase 0: Demographics</h4>
+                        <p>Provide background information about your academic and professional experience.</p>
                     </div>
-                    
+
+                    <div class="flow-info">
+                        <h4>Phase 1: Ground truth</h4>
+                        <p>Review the diagram and description, then assign your own 1-4 score for every criterion guideline.</p>
+                    </div>
+
                     <div class="task-info">
-                        <h4>Your task</h4>
-                        <p>Evaluate whether the provided technical analysis is accurate and well-founded, using the specific guidelines.</p>
+                        <h4>Phase 2: Qualitative comparison</h4>
+                        <p>Compare two anonymized responses for the same criterion. Choose the better response and justify your choice.</p>
                     </div>
-                    
+
                     <div class="guidelines-info">
-                        <h4>Instructions</h4>
+                        <h4>Assignment rule</h4>
                         <ul>
-                            <li>Judge based on the provided material, both the diagram and the description</li>
-                            <li>Use the agreement scale (1-4)</li>
-                            <li>Identify issues: hallucinations, omissions, or logical errors</li>
+                            <li>Each evaluator works on only one diagram.</li>
+                            <li>Diagrams with fewer than two responses are prioritized.</li>
+                            <li>When all diagrams have enough responses, the least evaluated diagram is selected.</li>
                         </ul>
                     </div>
                 </div>
-                
+
                 <div class="login-card">
                     <h3>Identification</h3>
                     <p>Please enter your email to start or continue the session.</p>
-                    
+
                     <form id="login-form">
                         <div class="form-group">
                             <label for="user-email">Email</label>
-                            <input 
-                                type="email" 
-                                id="user-email" 
-                                name="email" 
+                            <input
+                                type="email"
+                                id="user-email"
+                                name="email"
                                 placeholder="your.email@example.com"
                                 required
                             >
@@ -65,34 +64,27 @@
                             <span id="btn-continue" style="display: none;">Continue</span>
                         </button>
                     </form>
-                    
+
                     <div id="progress-info" class="progress-info" style="display: none;">
-                        <p>You have <strong><span id="completed-count">0</span></strong> evaluations submitted.</p>
+                        <p>Saved session found: <strong><span id="completed-count">ready to continue</span></strong>.</p>
                     </div>
                 </div>
             </div>
-            
         </div>
     </div>
 
-    <!-- Main Audit Screen -->
     <div id="audit-screen" class="screen audit-screen" style="display: none;">
-        <!-- Status Bar -->
         <div class="progress-bar-container">
             <div class="progress-header">
-                <span class="progress-label">Answers submitted: <strong id="submitted-count">0</strong></span>
-                <span class="progress-id" id="output-id">OUT_001</span>
+                <span class="progress-label" id="phase-label">Phase 1: Ground truth</span>
+                <span class="progress-id" id="output-id">Diagram</span>
             </div>
             <div class="progress-actions">
-                <button id="save-exit-btn" class="btn btn-secondary btn-sm">
-                    Save and exit
-                </button>
+                <button id="save-exit-btn" class="btn btn-secondary btn-sm">Save and exit</button>
             </div>
         </div>
 
-        <!-- Split View Container -->
         <div class="split-container">
-            <!-- Left Panel: Diagram and Description -->
             <div class="left-panel">
                 <div class="panel-header">
                     <h2>Diagram and description</h2>
@@ -104,41 +96,30 @@
                             <img id="diagram-image" src="" alt="Architecture Diagram" class="diagram-img">
                         </div>
                     </div>
-                    
+
                     <div class="description-section">
                         <h3>Textual description</h3>
-                        <div class="description-content" id="description-content">
-                            <!-- Description text will be inserted here -->
-                        </div>
+                        <div class="description-content" id="description-content"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Panel: Evaluation Questionnaire -->
             <div class="right-panel">
                 <div class="panel-header">
-                    <h2>Audit questionnaire</h2>
+                    <h2>Questionnaire</h2>
                 </div>
                 <div class="panel-content">
-                    <!-- Criterion Info -->
                     <div class="criterion-section">
-                        <h3 id="criterion-name">Accuracy</h3>
-                        <p id="criterion-description" class="criterion-desc">
-                            <!-- Criterion description will be inserted here -->
-                        </p>
+                        <h3 id="criterion-name">Criterion</h3>
+                        <p id="criterion-description" class="criterion-desc"></p>
+                        <p id="phase-instructions" class="phase-instructions"></p>
                     </div>
 
-                    <!-- Guidelines Form -->
                     <form id="audit-form">
-                        <div id="guidelines-container">
-                            <!-- Guidelines will be dynamically inserted here -->
-                        </div>
+                        <div id="form-container"></div>
 
-                        <!-- Navigation Buttons -->
                         <div class="form-navigation">
-                            <button type="submit" id="next-btn" class="btn btn-primary">
-                                Next →
-                            </button>
+                            <button type="submit" id="next-btn" class="btn btn-primary">Next</button>
                         </div>
                     </form>
                 </div>
@@ -146,147 +127,16 @@
         </div>
     </div>
 
-    <!-- Completion Screen -->
     <div id="completion-screen" class="screen" style="display: none;">
         <div class="completion-container">
             <div class="completion-icon">&#10003;</div>
-            <h1>Audit completed!</h1>
+            <h1>Evaluation completed!</h1>
             <p>Thank you for participating in this academic research.</p>
-            <p>Your responses have been successfully submitted.</p>
-            
-            <div class="completion-stats">
-                <div class="stat-item">
-                    <span class="stat-number" id="final-completed-count">0</span>
-                    <span class="stat-label">Evaluations completed</span>
-                </div>
-            </div>
-            
-            <button id="restart-btn" class="btn btn-primary">
-                Start new audit
-            </button>
+            <p>Your responses have been saved.</p>
+
+            <button id="restart-btn" class="btn btn-primary">Start new evaluation</button>
         </div>
     </div>
-
-    <!-- Guideline Template -->
-    <template id="guideline-template">
-        <div class="guideline-card" data-guideline-id="">
-            <h4 class="guideline-name"></h4>
-            
-            <div class="llm-analysis">
-                <p class="guideline-question"></p>
-                <div class="analysis-score">
-                    <span class="score-label">Assigned score (scale 1 to 4):</span>
-                    <span class="score-value"></span>
-                </div>
-                <span class="justification-label">Justification:</span>
-                <p class="justification-text"></p>
-            </div>
-            
-            <label class="question-label">Agreement with the assigned score:</label>
-            <div class="likert-scale">
-                <div class="likert-labels">
-                    <span>Strongly disagree</span>
-                    <span>Strongly agree</span>
-                </div>
-                <div class="likert-options">
-                    <label class="likert-option">
-                        <input type="radio" name="" value="1" required>
-                        <span class="likert-circle">1</span>
-                    </label>
-                    <label class="likert-option">
-                        <input type="radio" name="" value="2">
-                        <span class="likert-circle">2</span>
-                    </label>
-                    <label class="likert-option">
-                        <input type="radio" name="" value="3">
-                        <span class="likert-circle">3</span>
-                    </label>
-                    <label class="likert-option">
-                        <input type="radio" name="" value="4">
-                        <span class="likert-circle">4</span>
-                    </label>
-                </div>
-            </div>
-
-            <label class="question-label">Inconsistencies identified in the justification:</label>
-            <div class="checkbox-group">
-                <label class="checkbox-option correct-option">
-                    <input type="checkbox" name="" value="correct" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Faithful and correct</strong>
-                        <small>The justification is solid and presents no errors.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="hallucination" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Content hallucination</strong>
-                        <small>Mentions something nonexistent in the diagram/description.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="omission" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Omission</strong>
-                        <small>Failed to notice and mention something important for the analysis in the diagram/description.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="misinterpretation" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Misinterpretation</strong>
-                        <small>Saw the component but misunderstood its function/connection.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="contradiction" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Internal contradiction</strong>
-                        <small>The analysis text is confusing and contradicts itself.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="vagueness" class="issue-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Vagueness</strong>
-                        <small>The text is too shallow and doesn't prove the analysis "understood" the diagram.</small>
-                    </span>
-                </label>
-                <label class="checkbox-option error-option">
-                    <input type="checkbox" name="" value="other" class="issue-checkbox other-checkbox">
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">
-                        <strong>Other</strong>
-                        <small>Another type of error not listed above.</small>
-                    </span>
-                </label>
-            </div>
-
-            <div class="other-input-group" style="display: none;">
-                <label class="question-label">Specify the other error:</label>
-                <input type="text" class="other-input" placeholder="Describe the type of error...">
-            </div>
-
-            <div class="comment-group">
-                <label class="question-label">Explanation of errors found</label>
-                <textarea 
-                    name="" 
-                    class="comment-textarea" 
-                    placeholder="Describe the issues found..."
-                    rows="2"
-                ></textarea>
-            </div>
-        </div>
-    </template>
-
-    <!-- Floating Help Button -->
-    <button id="tutorial-help-btn" class="tutorial-help-btn" title="How to use this page" style="display: none;">?</button>
 
     <script src="data.js"></script>
     <script src="app.js"></script>

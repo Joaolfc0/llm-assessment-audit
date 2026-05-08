@@ -191,6 +191,100 @@ a:hover {
     margin: var(--spacing-lg) 0;
 }
 
+.phase-instructions {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--primary-light);
+    border-left: 4px solid var(--primary-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+}
+
+.comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.comparison-panel,
+.choice-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.comparison-panel {
+    max-height: 58vh;
+    overflow-y: auto;
+}
+
+.comparison-panel h4 {
+    margin-bottom: var(--spacing-xs);
+}
+
+.choice-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0 var(--spacing-lg);
+}
+
+.choice-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.choice-option:has(input:checked) {
+    background: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
+.submit-indicator {
+    display: none;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.btn.is-loading {
+    opacity: 0.9;
+    cursor: wait;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 1100px) {
+    .comparison-grid,
+    .choice-options {
+        grid-template-columns: 1fr;
+    }
+}
+
 .flow-info h4,
 .task-info h4,
 .guidelines-info h4 {
@@ -248,6 +342,7 @@ a:hover {
 
 input[type="email"],
 input[type="text"],
+select,
 textarea {
     width: 100%;
     padding: var(--spacing-md);
@@ -260,10 +355,16 @@ textarea {
 
 input[type="email"]:focus,
 input[type="text"]:focus,
+select:focus,
 textarea:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+select {
+    background: var(--bg-primary);
+    color: var(--text-primary);
 }
 
 input::placeholder,
@@ -410,6 +511,20 @@ textarea::placeholder {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+}
+
+.split-container.demographic-layout {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.split-container.demographic-layout .right-panel {
+    width: 100%;
+}
+
+.split-container.demographic-layout .panel-content {
+    max-width: 1120px;
+    width: 100%;
+    margin: 0 auto;
 }
 
 @media (max-width: 1200px) {
@@ -577,6 +692,96 @@ textarea::placeholder {
     padding: var(--spacing-xl);
 }
 
+.demographic-card {
+    padding: var(--spacing-2xl);
+}
+
+.demographic-section {
+    margin: 0 0 var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.demographic-section:not(:first-child) {
+    margin-top: var(--spacing-xl);
+}
+
+.demographic-section h4 {
+    margin: 0 0 var(--spacing-xs);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+}
+
+.field-help {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.demographic-grid,
+.experience-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.experience-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.demographic-choice-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.demographic-card .question-label {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.demographic-choice-options .choice-option {
+    align-items: flex-start;
+    min-height: 72px;
+}
+
+.demographic-choice-options .choice-option span {
+    font-size: 0.98rem;
+    line-height: 1.35;
+}
+
+.experience-select {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.experience-select span {
+    font-size: 0.98rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 1100px) {
+    .experience-grid,
+    .demographic-choice-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .demographic-grid,
+    .experience-grid,
+    .demographic-choice-options {
+        grid-template-columns: 1fr;
+    }
+}
+
 .guideline-name {
     margin: 0 0 var(--spacing-md) 0;
     color: var(--text-primary);
@@ -592,8 +797,8 @@ textarea::placeholder {
     line-height: 1.5;
 }
 
-/* LLM Analysis */
-.llm-analysis {
+/* Response text */
+.response-analysis {
     padding: var(--spacing-md);
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);

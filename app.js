@@ -1,39 +1,114 @@
 /**
  * AEA: Architectural Evaluation Audit
- * Main Application Logic
+ * Three-phase methodological flow.
  */
 
 (function() {
     'use strict';
 
-    // =========================================
-    // Configuration
-    // =========================================
     const CONFIG = {
-        STORAGE_KEY: 'aea_audit_data',
-        // Blind review / local-only mode: keep empty to disable Google Sheets networking.
-        // To re-enable uploads for the main study, deploy `google-apps-script.js` and set this URL.
-        GOOGLE_SCRIPT_URL: ''
+        STORAGE_KEY: 'aea_method_v4_data',
+        GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx7tFN2QgA1o4nWtMg6M2UMN0XsEXrB44cGq3yz1qmy34JmlErGaSnexAPJ739d-n57/exec',
+        MIN_RESPONSES_PER_DIAGRAM: 2
     };
 
-    // =========================================
-    // State Management
-    // =========================================
-    let state = {
+    const PHASES = {
+        DEMOGRAPHIC: 'demographic',
+        GT: 'ground_truth',
+        QUALITATIVE: 'qualitative',
+        COMPLETED: 'completed'
+    };
+
+    const FORMAT = {
+        PNG: 'PNG'
+    };
+
+    const stateDefaults = {
+        submissionId: null,
         userEmail: null,
-        shuffledOrder: [],
-        currentIndex: 0,
-        responses: {},
-        startTime: null
+        diagramId: null,
+        phase: PHASES.DEMOGRAPHIC,
+        demographicResponse: null,
+        gtIndex: 0,
+        comparisonIndex: 0,
+        gtResponses: {},
+        comparisonResponses: {},
+        startedAt: null
     };
 
-    // =========================================
-    // Utility Functions
-    // =========================================
-    
-    /**
-     * Fisher-Yates shuffle algorithm
-     */
+    let state = { ...stateDefaults };
+    let currentItems = {
+        gt: [],
+        comparisons: []
+    };
+    let isSubmitting = false;
+
+    const DOM = {
+        welcomeScreen: document.getElementById('welcome-screen'),
+        auditScreen: document.getElementById('audit-screen'),
+        completionScreen: document.getElementById('completion-screen'),
+        loginForm: document.getElementById('login-form'),
+        userEmail: document.getElementById('user-email'),
+        btnText: document.getElementById('btn-text'),
+        btnContinue: document.getElementById('btn-continue'),
+        progressInfo: document.getElementById('progress-info'),
+        completedCount: document.getElementById('completed-count'),
+        phaseLabel: document.getElementById('phase-label'),
+        outputId: document.getElementById('output-id'),
+        saveExitBtn: document.getElementById('save-exit-btn'),
+        splitContainer: document.querySelector('.split-container'),
+        leftPanel: document.querySelector('.left-panel'),
+        rightPanel: document.querySelector('.right-panel'),
+        diagramImage: document.getElementById('diagram-image'),
+        descriptionContent: document.getElementById('description-content'),
+        criterionName: document.getElementById('criterion-name'),
+        criterionDescription: document.getElementById('criterion-description'),
+        phaseInstructions: document.getElementById('phase-instructions'),
+        formContainer: document.getElementById('form-container'),
+        auditForm: document.getElementById('audit-form'),
+        nextBtn: document.getElementById('next-btn'),
+        restartBtn: document.getElementById('restart-btn')
+    };
+
+    function getData() {
+        return window.AEA_DATA;
+    }
+
+    function getDiagrams() {
+        return getData().diagrams || [];
+    }
+
+    function getDiagram() {
+        return getDiagrams().find(diagram => diagram.id === state.diagramId) || getDiagrams()[0];
+    }
+
+    function getOutputsForDiagram(diagram) {
+        const ids = new Set(diagram.outputIds || []);
+        return getData().outputs.filter(output => ids.size === 0 || ids.has(output.id));
+    }
+
+    function getCriterionEntries() {
+        return Object.entries(getData().criteria);
+    }
+
+    function formatDescription(description) {
+        return description
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => `<p>${escapeHtml(line)}</p>`)
+            .join('');
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     function shuffleArray(array) {
         const shuffled = [...array];
         for (let i = shuffled.length - 1; i > 0; i--) {
@@ -43,203 +118,173 @@
         return shuffled;
     }
 
-    /**
-     * Generate a deterministic shuffle based on email
-     */
-    function getTotalOutputs() {
-        return window.AEA_DATA.outputs.length;
+    function createSubmissionId(email) {
+        const safeEmail = email.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const randomPart = window.crypto && window.crypto.randomUUID
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        return `${safeEmail}-${randomPart}`;
     }
 
-    /**
-     * Fetch per-output evaluation counts from the backend.
-     * Returns an object like { "OUT_001": 3, "OUT_005": 0 } or null on failure.
-     */
-    async function fetchOutputCounts() {
+    function saveState() {
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
+            ...state,
+            lastUpdated: new Date().toISOString()
+        }));
+    }
+
+    function loadState(email) {
+        const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
+        if (!stored) return null;
+
         try {
-            if (!CONFIG.GOOGLE_SCRIPT_URL) {
-                // Offline: counts are not fetched; the UI will still work locally.
-                return null;
-            }
-            const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL);
-            return await response.json();
-        } catch (err) {
-            console.warn('Could not fetch output counts:', err);
+            const data = JSON.parse(stored);
+            return data.userEmail === email ? data : null;
+        } catch (error) {
+            console.error('Could not load saved state:', error);
             return null;
         }
     }
 
-    /**
-     * Build an ordering that puts under-evaluated outputs first.
-     * Outputs with < 2 evaluations are shuffled and placed before the rest.
-     */
-    function generatePrioritizedOrder(counts) {
-        const needsMore = [];
-        const hasEnough = [];
-
-        for (let i = 0; i < getTotalOutputs(); i++) {
-            const outputId = window.AEA_DATA.outputs[i].id;
-            const count = (counts && counts[outputId]) || 0;
-            if (count < 2) {
-                needsMore.push(i);
-            } else {
-                hasEnough.push(i);
-            }
-        }
-
-        return [...shuffleArray(needsMore), ...shuffleArray(hasEnough)];
-    }
-
-    /**
-     * Save state to localStorage
-     */
-    function saveState() {
-        const data = {
-            userEmail: state.userEmail,
-            shuffledOrder: state.shuffledOrder,
-            currentIndex: state.currentIndex,
-            responses: state.responses,
-            lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
-    }
-
-    /**
-     * Load state from localStorage
-     */
-    function loadState(email) {
-        const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
-        if (stored) {
-            try {
-                const data = JSON.parse(stored);
-                if (data.userEmail === email) {
-                    return data;
-                }
-            } catch (e) {
-                console.error('Error loading state:', e);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Clear state from localStorage
-     */
     function clearState() {
         localStorage.removeItem(CONFIG.STORAGE_KEY);
     }
 
-    /**
-     * Get completed count
-     */
-    function getCompletedCount() {
-        return Object.keys(state.responses).length;
+    async function fetchDiagramCounts() {
+        if (!CONFIG.GOOGLE_SCRIPT_URL) return null;
+
+        try {
+            const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL);
+            return await response.json();
+        } catch (error) {
+            console.warn('Could not fetch diagram counts:', error);
+            return null;
+        }
     }
 
-    // =========================================
-    // DOM References
-    // =========================================
-    const DOM = {
-        // Screens
-        welcomeScreen: document.getElementById('welcome-screen'),
-        auditScreen: document.getElementById('audit-screen'),
-        completionScreen: document.getElementById('completion-screen'),
-        
-        // Welcome
-        loginForm: document.getElementById('login-form'),
-        userEmail: document.getElementById('user-email'),
-        btnText: document.getElementById('btn-text'),
-        btnContinue: document.getElementById('btn-continue'),
-        progressInfo: document.getElementById('progress-info'),
-        completedCount: document.getElementById('completed-count'),
-        
-        // Status Bar
-        submittedCount: document.getElementById('submitted-count'),
-        outputId: document.getElementById('output-id'),
-        saveExitBtn: document.getElementById('save-exit-btn'),
-        finalCompletedCount: document.getElementById('final-completed-count'),
-        
-        // Left Panel
-        diagramImage: document.getElementById('diagram-image'),
-        descriptionContent: document.getElementById('description-content'),
-        
-        // Right Panel
-        criterionName: document.getElementById('criterion-name'),
-        criterionDescription: document.getElementById('criterion-description'),
-        guidelinesContainer: document.getElementById('guidelines-container'),
-        auditForm: document.getElementById('audit-form'),
-        nextBtn: document.getElementById('next-btn'),
-        
-        // Completion
-        restartBtn: document.getElementById('restart-btn'),
-        
-        // Template
-        guidelineTemplate: document.getElementById('guideline-template')
-    };
+    function selectBalancedDiagram(counts) {
+        const diagrams = getDiagrams();
+        if (diagrams.length === 0) {
+            throw new Error('No diagrams configured in data.js.');
+        }
 
-    // =========================================
-    // Screen Navigation
-    // =========================================
-    
+        const withCounts = diagrams.map(diagram => ({
+            diagram,
+            count: counts && Number.isFinite(Number(counts[diagram.id])) ? Number(counts[diagram.id]) : 0
+        }));
+
+        const underTarget = withCounts.filter(item => item.count < CONFIG.MIN_RESPONSES_PER_DIAGRAM);
+        const candidates = underTarget.length > 0 ? underTarget : withCounts;
+        const minCount = Math.min(...candidates.map(item => item.count));
+        return shuffleArray(candidates.filter(item => item.count === minCount))[0].diagram;
+    }
+
+    function buildGtItems(diagram) {
+        return getCriterionEntries().map(([criterionId, criterion]) => ({
+            id: `${diagram.id}_${criterionId}`,
+            diagramId: diagram.id,
+            criterionId,
+            criterion
+        }));
+    }
+
+    function buildComparisonItems(diagram) {
+        const outputs = getOutputsForDiagram(diagram);
+        const items = [];
+
+        getCriterionEntries().forEach(([criterionId, criterion]) => {
+            const models = [...new Set(outputs.map(output => output.model))].sort();
+            models.forEach(model => {
+                const pngOutput = outputs.find(output =>
+                    output.model === model &&
+                    output.criterion === criterionId &&
+                    output.format.toUpperCase() === FORMAT.PNG
+                );
+                const textualOutput = outputs.find(output =>
+                    output.model === model &&
+                    output.criterion === criterionId &&
+                    output.format.toUpperCase() !== FORMAT.PNG
+                );
+
+                if (pngOutput && textualOutput) {
+                    criterion.guidelines.forEach(guideline => {
+                        const pngGuideline = pngOutput.guidelines.find(entry => entry.id === guideline.id);
+                        const textualGuideline = textualOutput.guidelines.find(entry => entry.id === guideline.id);
+
+                        if (!pngGuideline || !textualGuideline) return;
+
+                        items.push({
+                            id: `${diagram.id}_${model}_${criterionId}_${guideline.id}`,
+                            diagramId: diagram.id,
+                            model,
+                            criterionId,
+                            criterion,
+                            guideline,
+                            pngOutput,
+                            textualOutput,
+                            pngGuideline,
+                            textualGuideline
+                        });
+                    });
+                }
+            });
+        });
+
+        return items;
+    }
+
+    function rebuildItems() {
+        const diagram = getDiagram();
+        currentItems = {
+            gt: buildGtItems(diagram),
+            comparisons: buildComparisonItems(diagram)
+        };
+    }
+
+    function getCompletedCount() {
+        return Object.keys(state.gtResponses || {}).length +
+            Object.keys(state.comparisonResponses || {}).length;
+    }
+
+    function getTotalCount() {
+        return currentItems.gt.length + currentItems.comparisons.length;
+    }
+
+    function getCompletionLabel(data) {
+        if (data.phase === PHASES.COMPLETED) return 'completed';
+        if (data.phase === PHASES.QUALITATIVE) return 'qualitative comparison started';
+        if (data.phase === PHASES.GT) return 'ground truth started';
+        if (data.phase === PHASES.DEMOGRAPHIC) return 'demographic phase started';
+        return 'ground truth started';
+    }
+
     function showScreen(screenId) {
         DOM.welcomeScreen.style.display = 'none';
         DOM.auditScreen.style.display = 'none';
         DOM.completionScreen.style.display = 'none';
-        
-        switch (screenId) {
-            case 'welcome':
-                DOM.welcomeScreen.style.display = 'block';
-                showHelpButton(false);
-                break;
-            case 'audit':
-                DOM.auditScreen.style.display = 'flex';
-                showHelpButton(true);
-                break;
-            case 'completion':
-                DOM.completionScreen.style.display = 'flex';
-                showHelpButton(false);
-                break;
-        }
+
+        if (screenId === 'welcome') DOM.welcomeScreen.style.display = 'block';
+        if (screenId === 'audit') DOM.auditScreen.style.display = 'flex';
+        if (screenId === 'completion') DOM.completionScreen.style.display = 'flex';
     }
 
-    // =========================================
-    // Welcome Screen Logic
-    // =========================================
-    
     function initWelcomeScreen() {
-        // Check if there's existing progress
-        const emailInput = DOM.userEmail;
-        
-        emailInput.addEventListener('input', function() {
+        DOM.userEmail.addEventListener('input', function() {
             const email = this.value.trim();
-            if (email && email.includes('@')) {
-                const existing = loadState(email);
-                if (existing && getCompletedCountFromData(existing) > 0) {
-                    DOM.btnText.style.display = 'none';
-                    DOM.btnContinue.style.display = 'inline';
-                    DOM.progressInfo.style.display = 'block';
-                    DOM.completedCount.textContent = getCompletedCountFromData(existing);
-                } else {
-                    DOM.btnText.style.display = 'inline';
-                    DOM.btnContinue.style.display = 'none';
-                    DOM.progressInfo.style.display = 'none';
-                }
-            } else {
-                DOM.btnText.style.display = 'inline';
-                DOM.btnContinue.style.display = 'none';
-                DOM.progressInfo.style.display = 'none';
-            }
+            const existing = email.includes('@') ? loadState(email) : null;
+
+            DOM.btnText.style.display = existing ? 'none' : 'inline';
+            DOM.btnContinue.style.display = existing ? 'inline' : 'none';
+            DOM.progressInfo.style.display = existing ? 'block' : 'none';
+            if (existing) DOM.completedCount.textContent = getCompletionLabel(existing);
         });
-        
+
         DOM.loginForm.addEventListener('submit', handleLogin);
     }
 
-    function getCompletedCountFromData(data) {
-        return data.responses ? Object.keys(data.responses).length : 0;
-    }
+    async function handleLogin(event) {
+        event.preventDefault();
 
-    async function handleLogin(e) {
-        e.preventDefault();
-        
         const email = DOM.userEmail.value.trim();
         if (!email || !email.includes('@')) {
             alert('Please enter a valid email.');
@@ -247,981 +292,726 @@
         }
 
         const existing = loadState(email);
-        
         if (existing) {
             state = {
-                userEmail: existing.userEmail,
-                shuffledOrder: existing.shuffledOrder,
-                currentIndex: existing.currentIndex,
-                responses: existing.responses || {},
-                startTime: new Date()
+                ...stateDefaults,
+                ...existing,
+                submissionId: existing.submissionId || createSubmissionId(email),
+                demographicResponse: existing.demographicResponse || null,
+                gtResponses: existing.gtResponses || {},
+                comparisonResponses: existing.comparisonResponses || {}
             };
         } else {
-            // Show loading state while fetching counts
-            const submitBtn = DOM.loginForm.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
+            const submitButton = DOM.loginForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
             DOM.btnText.textContent = 'Loading...';
-            DOM.btnContinue.textContent = 'Loading...';
 
-            const counts = await fetchOutputCounts();
+            const selectedDiagram = selectBalancedDiagram(await fetchDiagramCounts());
 
-            submitBtn.disabled = false;
+            submitButton.disabled = false;
             DOM.btnText.textContent = 'Start';
-            DOM.btnContinue.textContent = 'Continue';
 
             state = {
+                ...stateDefaults,
+                submissionId: createSubmissionId(email),
                 userEmail: email,
-                shuffledOrder: generatePrioritizedOrder(counts),
-                currentIndex: 0,
-                responses: {},
-                startTime: new Date()
+                diagramId: selectedDiagram.id,
+                startedAt: new Date().toISOString()
             };
         }
-        
+
+        rebuildItems();
+        normalizeProgress();
         saveState();
-        
-        // Check if already completed all outputs
-        if (getCompletedCount() >= getTotalOutputs()) {
+
+        if (state.phase === PHASES.COMPLETED) {
             showCompletionScreen();
         } else {
             showScreen('audit');
-            renderCurrentOutput();
+            renderCurrentStep();
         }
     }
 
-    // =========================================
-    // Audit Screen Logic
-    // =========================================
-    
-    let firstRenderDone = false;
-
-    function renderCurrentOutput() {
-        const outputIndex = state.shuffledOrder[state.currentIndex];
-        const output = window.AEA_DATA.outputs[outputIndex];
-        const criterion = window.AEA_DATA.criteria[output.criterion];
-        
-        // Update status bar
-        updateStatusBar();
-        
-        // Update left panel
-        renderLeftPanel(output);
-        
-        // Update right panel
-        renderRightPanel(output, criterion);
-        
-        // Load saved response if exists
-        loadSavedResponse(output.id);
-        
-        // Update navigation buttons
-        updateNavigationButtons();
-
-        if (!firstRenderDone) {
-            firstRenderDone = true;
-            autoShowTutorialIfNeeded();
+    function normalizeProgress() {
+        if (state.phase === PHASES.DEMOGRAPHIC && state.demographicResponse) {
+            state.phase = PHASES.GT;
         }
+
+        if (state.phase === PHASES.GT && state.gtIndex >= currentItems.gt.length) {
+            state.phase = PHASES.QUALITATIVE;
+            state.comparisonIndex = Math.min(state.comparisonIndex || 0, currentItems.comparisons.length);
+        }
+
+        if (state.phase === PHASES.QUALITATIVE && state.comparisonIndex >= currentItems.comparisons.length) {
+            state.phase = PHASES.COMPLETED;
+        }
+    }
+
+    function renderCurrentStep() {
+        const diagram = getDiagram();
+        const isDemographicPhase = state.phase === PHASES.DEMOGRAPHIC;
+        DOM.splitContainer.classList.toggle('demographic-layout', isDemographicPhase);
+        DOM.leftPanel.style.display = isDemographicPhase ? 'none' : 'flex';
+
+        if (!isDemographicPhase) {
+            DOM.diagramImage.src = diagram.imagePath;
+            DOM.diagramImage.alt = `${diagram.title} architecture diagram`;
+            DOM.descriptionContent.innerHTML = formatDescription(diagram.description);
+        }
+
+        if (state.phase === PHASES.GT) {
+            renderGtStep(currentItems.gt[state.gtIndex]);
+        } else if (state.phase === PHASES.DEMOGRAPHIC) {
+            renderDemographicStep();
+        } else if (state.phase === PHASES.QUALITATIVE) {
+            renderComparisonStep(currentItems.comparisons[state.comparisonIndex]);
+        } else {
+            showCompletionScreen();
+        }
+
+        updateStatusBar();
     }
 
     function updateStatusBar() {
-        const outputIndex = state.shuffledOrder[state.currentIndex];
-        const output = window.AEA_DATA.outputs[outputIndex];
-        
-        DOM.submittedCount.textContent = getCompletedCount();
-        DOM.outputId.textContent = output.id;
-    }
-
-    function renderLeftPanel(output) {
-        // Diagram
-        DOM.diagramImage.src = output.diagramPath;
-        DOM.diagramImage.alt = 'Architecture Diagram';
-        
-        // Description
-        const descriptionHtml = window.AEA_DATA.description
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line)
-            .map(line => `<p>${line}</p>`)
-            .join('');
-        DOM.descriptionContent.innerHTML = descriptionHtml;
-    }
-
-    function renderRightPanel(output, criterion) {
-        // Criterion info
-        DOM.criterionName.textContent = criterion.name;
-        DOM.criterionDescription.textContent = criterion.description;
-        
-        // Clear existing guidelines
-        DOM.guidelinesContainer.innerHTML = '';
-        
-        // Render each guideline
-        output.guidelines.forEach((guidelineData, idx) => {
-            const guidelineDef = criterion.guidelines.find(g => g.id === guidelineData.id);
-            const guidelineEl = createGuidelineCard(guidelineData, guidelineDef, output.id, idx);
-            DOM.guidelinesContainer.appendChild(guidelineEl);
-        });
-    }
-
-    function createGuidelineCard(guidelineData, guidelineDef, outputId, idx) {
-        const template = DOM.guidelineTemplate.content.cloneNode(true);
-        const card = template.querySelector('.guideline-card');
-        
-        const guidelineId = `${outputId}_${guidelineData.id}`;
-        card.dataset.guidelineId = guidelineId;
-        
-        // Header
-        card.querySelector('.guideline-name').textContent = 
-            `${idx + 1}. ${guidelineDef ? guidelineDef.name : guidelineData.id}`;
-        card.querySelector('.guideline-question').textContent = 
-            guidelineDef ? guidelineDef.description : '';
-        
-        // LLM Analysis
-        card.querySelector('.score-value').textContent = guidelineData.score;
-        card.querySelector('.justification-text').textContent = guidelineData.justification;
-        
-        // Update form field names
-        const likertInputs = card.querySelectorAll('.likert-option input');
-        likertInputs.forEach(input => {
-            input.name = `likert_${guidelineId}`;
-            input.setAttribute('tabindex', '-1');
-        });
-        
-        // Make likert circles focusable instead
-        const likertCircles = card.querySelectorAll('.likert-circle');
-        likertCircles.forEach((circle, i) => {
-            circle.setAttribute('tabindex', '0');
-            circle.addEventListener('keydown', function(e) {
-                if (e.key === ' ' || e.key === 'Enter') {
-                    e.preventDefault();
-                    likertInputs[i].checked = true;
-                    likertInputs[i].dispatchEvent(new Event('change'));
-                }
-            });
-        });
-        
-        const checkboxInputs = card.querySelectorAll('.issue-checkbox');
-        checkboxInputs.forEach(input => {
-            input.name = `issues_${guidelineId}`;
-            input.setAttribute('tabindex', '-1');
-        });
-        
-        // Make checkbox options focusable
-        const checkboxOptions = card.querySelectorAll('.checkbox-option');
-        checkboxOptions.forEach((option, i) => {
-            option.setAttribute('tabindex', '0');
-            option.addEventListener('keydown', function(e) {
-                if (e.key === ' ' || e.key === 'Enter') {
-                    e.preventDefault();
-                    checkboxInputs[i].checked = !checkboxInputs[i].checked;
-                    checkboxInputs[i].dispatchEvent(new Event('change'));
-                }
-            });
-        });
-        
-        const textarea = card.querySelector('.comment-textarea');
-        textarea.name = `comment_${guidelineId}`;
-        
-        // Add event listeners for checkbox logic
-        setupCheckboxLogic(card, guidelineId);
-        
-        return card;
-    }
-
-    function setupCheckboxLogic(card, guidelineId) {
-        const correctCheckbox = card.querySelector('input[value="correct"]');
-        const errorCheckboxes = card.querySelectorAll('.error-option input.issue-checkbox');
-        const otherCheckbox = card.querySelector('input[value="other"]');
-        const otherInputGroup = card.querySelector('.other-input-group');
-        const otherInput = card.querySelector('.other-input');
-        
-        // When "correct" is checked, uncheck all errors and hide other input
-        correctCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                errorCheckboxes.forEach(cb => cb.checked = false);
-                if (otherInputGroup) {
-                    otherInputGroup.style.display = 'none';
-                    otherInput.value = '';
-                }
-            }
-        });
-        
-        // When any error is checked, uncheck "correct"
-        errorCheckboxes.forEach(errorCb => {
-            errorCb.addEventListener('change', function() {
-                if (this.checked) {
-                    correctCheckbox.checked = false;
-                }
-            });
-        });
-        
-        // Handle "other" checkbox - show/hide text input
-        if (otherCheckbox && otherInputGroup && otherInput) {
-            otherCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    otherInputGroup.style.display = 'block';
-                    otherInput.focus();
-                } else {
-                    otherInputGroup.style.display = 'none';
-                    otherInput.value = '';
-                }
-            });
-        }
-    }
-
-    function loadSavedResponse(outputId) {
-        const response = state.responses[outputId];
-        if (!response) return;
-        
-        // Load each guideline's response
-        response.guidelines.forEach(guidelineResponse => {
-            const card = document.querySelector(`[data-guideline-id="${guidelineResponse.guidelineId}"]`);
-            if (!card) return;
-            
-            // Likert scale
-            if (guidelineResponse.likertScore) {
-                const likertInput = card.querySelector(`input[name="likert_${guidelineResponse.guidelineId}"][value="${guidelineResponse.likertScore}"]`);
-                if (likertInput) likertInput.checked = true;
-            }
-            
-            // Issues
-            if (guidelineResponse.issues && guidelineResponse.issues.length > 0) {
-                guidelineResponse.issues.forEach(issue => {
-                    const checkbox = card.querySelector(`input[name="issues_${guidelineResponse.guidelineId}"][value="${issue}"]`);
-                    if (checkbox) {
-                        checkbox.checked = true;
-                        // Trigger change event to update UI
-                        checkbox.dispatchEvent(new Event('change'));
-                    }
-                });
-            }
-            
-            // Other text
-            if (guidelineResponse.otherText) {
-                const otherInputGroup = card.querySelector('.other-input-group');
-                const otherInput = card.querySelector('.other-input');
-                if (otherInputGroup && otherInput) {
-                    otherInputGroup.style.display = 'block';
-                    otherInput.value = guidelineResponse.otherText;
-                }
-            }
-            
-            // Comment
-            if (guidelineResponse.comment) {
-                const textarea = card.querySelector(`textarea[name="comment_${guidelineResponse.guidelineId}"]`);
-                if (textarea) textarea.value = guidelineResponse.comment;
-            }
-        });
-    }
-
-    function collectCurrentResponse() {
-        const outputIndex = state.shuffledOrder[state.currentIndex];
-        const output = window.AEA_DATA.outputs[outputIndex];
-        
-        const guidelinesResponses = [];
-        const cards = DOM.guidelinesContainer.querySelectorAll('.guideline-card');
-        
-        cards.forEach(card => {
-            const guidelineId = card.dataset.guidelineId;
-            
-            // Get likert score
-            const likertInput = card.querySelector(`input[name="likert_${guidelineId}"]:checked`);
-            const likertScore = likertInput ? parseInt(likertInput.value) : null;
-            
-            // Get issues
-            const issueCheckboxes = card.querySelectorAll(`input[name="issues_${guidelineId}"]:checked`);
-            const issues = Array.from(issueCheckboxes).map(cb => cb.value);
-            
-            // Get "other" text if checked
-            const otherInputGroup = card.querySelector('.other-input-group');
-            const otherInput = card.querySelector('.other-input');
-            const otherText = otherInputGroup && otherInputGroup.style.display !== 'none' && otherInput ? otherInput.value.trim() : '';
-            
-            // Get comment
-            const textarea = card.querySelector(`textarea[name="comment_${guidelineId}"]`);
-            const comment = textarea ? textarea.value.trim() : '';
-            
-            guidelinesResponses.push({
-                guidelineId,
-                likertScore,
-                issues,
-                otherText,
-                comment
-            });
-        });
-        
-        return {
-            outputId: output.id,
-            model: output.model,
-            format: output.format,
-            criterion: output.criterion,
-            guidelines: guidelinesResponses,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    function validateCurrentResponse() {
-        const cards = DOM.guidelinesContainer.querySelectorAll('.guideline-card');
-        let isValid = true;
-        let firstInvalidElement = null;
-        
-        cards.forEach(card => {
-            const guidelineId = card.dataset.guidelineId;
-            
-            // Check likert scale
-            const likertInput = card.querySelector(`input[name="likert_${guidelineId}"]:checked`);
-            if (!likertInput) {
-                isValid = false;
-                if (!firstInvalidElement) {
-                    firstInvalidElement = card.querySelector('.likert-scale');
-                }
-            }
-        });
-        
-        if (!isValid && firstInvalidElement) {
-            const panelContent = firstInvalidElement.closest('.panel-content');
-            if (panelContent) {
-                const elementTop = firstInvalidElement.offsetTop - panelContent.offsetTop;
-                panelContent.scrollTo({ top: elementTop - 100, behavior: 'smooth' });
-            }
-            firstInvalidElement.focus({ preventScroll: true });
-        }
-        
-        return isValid;
-    }
-
-    function updateNavigationButtons() {
-        if (state.currentIndex === getTotalOutputs() - 1) {
-            DOM.nextBtn.textContent = 'Finish';
+        const diagram = getDiagram();
+        if (state.phase === PHASES.DEMOGRAPHIC) {
+            DOM.phaseLabel.textContent = 'Phase 0: Demographics';
+        } else if (state.phase === PHASES.GT) {
+            DOM.phaseLabel.textContent = 'Phase 1: Ground truth';
         } else {
-            DOM.nextBtn.textContent = 'Next →';
+            DOM.phaseLabel.textContent = 'Phase 2: Qualitative comparison';
         }
+        DOM.outputId.textContent = state.phase === PHASES.DEMOGRAPHIC
+            ? 'Background questionnaire'
+            : (diagram ? diagram.title : '');
+        DOM.nextBtn.textContent = isLastStep() ? 'Finish' : 'Next';
     }
 
-    // =========================================
-    // Event Handlers
-    // =========================================
-    
+    function isLastStep() {
+        return state.phase === PHASES.QUALITATIVE &&
+            state.comparisonIndex >= currentItems.comparisons.length - 1;
+    }
+
+    function renderDemographicStep() {
+        const response = state.demographicResponse || {};
+        const selectedTopics = new Set(response.architectureTopics || []);
+
+        DOM.criterionName.textContent = 'Participant background questionnaire';
+        DOM.criterionDescription.textContent = 'This information helps characterize your background in software architecture and microservices.';
+        DOM.phaseInstructions.textContent = 'Please complete all required demographic fields before continuing.';
+
+        const profileOptions = [
+            'Undergraduate',
+            'Master\'s',
+            'PhD',
+            'Industry professional',
+            'Other'
+        ];
+        const architectureTopics = [
+            'Software Architecture',
+            'Microservices Architecture',
+            'Distributed Systems',
+            'Cloud Architecture',
+            'Architecture Evaluation',
+            'Quality Attributes',
+            'Architectural Decision Records (ADRs)',
+            'Service/API Design'
+        ];
+        const experienceLevels = ['low', 'medium', 'extensive'];
+
+        DOM.formContainer.innerHTML = `
+            <section class="guideline-card demographic-card">
+                <div class="demographic-section">
+                    <h4>1. Your profile</h4>
+                    <p class="field-help">Start with your current academic or professional background.</p>
+                </div>
+
+                <div class="demographic-grid">
+                    <div class="form-group">
+                        <label class="question-label" for="demographic-course">Academic or professional profile</label>
+                        <select id="demographic-course" required>
+                            <option value="">Select an option</option>
+                            ${profileOptions.map(option => `<option value="${escapeHtml(option)}" ${response.currentCourse === option ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="question-label" for="demographic-dev-exp">Development experience</label>
+                        <select id="demographic-dev-exp" required>
+                            <option value="">Select an option</option>
+                            <option value="No professional development experience" ${response.developmentExperience === 'No professional development experience' ? 'selected' : ''}>No professional development experience</option>
+                            <option value="Up to 2 years of experience" ${response.developmentExperience === 'Up to 2 years of experience' ? 'selected' : ''}>Up to 2 years of experience</option>
+                            <option value="From 3 to 5 years of experience" ${response.developmentExperience === 'From 3 to 5 years of experience' ? 'selected' : ''}>From 3 to 5 years of experience</option>
+                            <option value="More than 5 years of experience" ${response.developmentExperience === 'More than 5 years of experience' ? 'selected' : ''}>More than 5 years of experience</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="demographic-section">
+                    <h4>2. Architecture background</h4>
+                    <p class="field-help">Select the topics you have studied, practiced, or evaluated before.</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="choice-options demographic-choice-options">
+                        ${architectureTopics.map(topic => `
+                            <label class="choice-option">
+                                <input type="checkbox" name="demographic-topic" value="${escapeHtml(topic)}" ${selectedTopics.has(topic) ? 'checked' : ''}>
+                                <span>${escapeHtml(topic)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="demographic-section">
+                    <h4>3. Experience level</h4>
+                    <p class="field-help">Use your own judgment: low, medium, or extensive experience.</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="experience-grid">
+                        ${renderExperienceSelect('Software architecture analysis', 'demographic-arch-analysis-exp', response.architectureAnalysisExperience, experienceLevels)}
+                        ${renderExperienceSelect('Microservices architecture', 'demographic-microservices-exp', response.microservicesExperience, experienceLevels)}
+                        ${renderExperienceSelect('Architecture evaluation and trade-offs', 'demographic-quality-attr-exp', response.qualityAttributesExperience, experienceLevels)}
+                    </div>
+                </div>
+
+                <div class="comment-group">
+                    <label class="question-label" for="demographic-background">Anything else relevant to your architecture background?</label>
+                    <textarea id="demographic-background" class="comment-textarea" rows="4" placeholder="Optional">${escapeHtml(response.additionalBackground || '')}</textarea>
+                </div>
+            </section>
+        `;
+    }
+
+    function renderGtStep(item) {
+        if (!item) {
+            advanceToQualitative();
+            return;
+        }
+
+        DOM.criterionName.textContent = item.criterion.name;
+        DOM.criterionDescription.textContent = item.criterion.description;
+        DOM.phaseInstructions.textContent = 'Give your own 1-4 score for each guideline in this criterion.';
+
+        const response = state.gtResponses[item.id] || { guidelineResponses: [] };
+        const savedByGuideline = new Map(
+            (response.guidelineResponses || []).map(entry => [entry.guideline, entry])
+        );
+
+        DOM.formContainer.innerHTML = `
+            <section class="guideline-card">
+                ${item.criterion.guidelines.map((guideline, index) => {
+                    const saved = savedByGuideline.get(guideline.id) || {};
+                    return `
+                        <div class="gt-guideline" data-guideline-id="${escapeHtml(guideline.id)}">
+                            <h4>${index + 1}. ${escapeHtml(guideline.name)}</h4>
+                            <p class="guideline-question">${escapeHtml(guideline.description)}</p>
+
+                            <label class="question-label">Your score</label>
+                            ${renderRadioScale(`gt_score_${guideline.id}`, saved.humanGtScore)}
+                        </div>
+                    `;
+                }).join('')}
+            </section>
+        `;
+    }
+
+    function renderComparisonStep(item) {
+        if (!item) {
+            completeStudy();
+            return;
+        }
+
+        DOM.criterionName.textContent = item.criterion.name;
+        DOM.criterionDescription.textContent = item.criterion.description;
+        DOM.phaseInstructions.textContent = 'Compare the two responses and justify which one is better.';
+
+        const response = state.comparisonResponses[item.id] || {};
+        const options = getComparisonDisplayOptions(item);
+
+        DOM.formContainer.innerHTML = `
+            <section class="guideline-card comparison-guideline-context">
+                <h4>${escapeHtml(item.guideline.name)}</h4>
+                <p class="guideline-question">${escapeHtml(item.guideline.description)}</p>
+            </section>
+
+            <div class="comparison-grid">
+                ${options.map(option => renderOutputPanel(option.label, option.guidelineResponse)).join('')}
+            </div>
+
+            <section class="choice-card">
+                <label class="question-label">Which response is better?</label>
+                <div class="choice-options">
+                    ${renderChoiceOption(options[0].label, `${options[0].label}`, response.preferredLabel)}
+                    ${renderChoiceOption(options[1].label, `${options[1].label}`, response.preferredLabel)}
+                    ${renderChoiceOption('Tie', 'Tie / no meaningful difference', response.preferredLabel)}
+                </div>
+
+                <div class="comment-group">
+                    <label class="question-label" for="comparison-justification">Justification</label>
+                    <textarea id="comparison-justification" class="comment-textarea" rows="4" required placeholder="Explain why this answer is better...">${escapeHtml(response.justification || '')}</textarea>
+                </div>
+            </section>
+        `;
+    }
+
+    function getComparisonDisplayOptions(item) {
+        const hash = Array.from(item.id).reduce((total, char) => total + char.charCodeAt(0), 0);
+        const pngFirst = hash % 2 === 0;
+
+        return pngFirst ? [
+            {
+                label: 'Response A',
+                format: item.pngOutput.format,
+                outputId: item.pngOutput.id,
+                guidelineResponse: item.pngGuideline
+            },
+            {
+                label: 'Response B',
+                format: item.textualOutput.format,
+                outputId: item.textualOutput.id,
+                guidelineResponse: item.textualGuideline
+            }
+        ] : [
+            {
+                label: 'Response A',
+                format: item.textualOutput.format,
+                outputId: item.textualOutput.id,
+                guidelineResponse: item.textualGuideline
+            },
+            {
+                label: 'Response B',
+                format: item.pngOutput.format,
+                outputId: item.pngOutput.id,
+                guidelineResponse: item.pngGuideline
+            }
+        ];
+    }
+
+    function renderOutputPanel(label, guidelineResponse) {
+        return `
+            <article class="comparison-panel">
+                <h4>${escapeHtml(label)}</h4>
+                <div class="response-analysis">
+                    <div class="analysis-score">
+                        <span class="score-label">Assigned score</span>
+                        <span class="score-value">${escapeHtml(guidelineResponse.score)}</span>
+                    </div>
+                    <span class="justification-label">Justification:</span>
+                    <p class="justification-text">${escapeHtml(guidelineResponse.justification)}</p>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderExperienceSelect(label, id, selectedValue, experienceLevels) {
+        return `
+            <label class="experience-select" for="${escapeHtml(id)}">
+                <span>${escapeHtml(label)}</span>
+                <select id="${escapeHtml(id)}" required>
+                    <option value="">Select</option>
+                    ${experienceLevels.map(level => `<option value="${level}" ${selectedValue === level ? 'selected' : ''}>${level}</option>`).join('')}
+                </select>
+            </label>
+        `;
+    }
+
+    function renderRadioScale(name, selectedValue) {
+        return `
+            <div class="likert-scale">
+                <div class="likert-labels">
+                    <span>1 - Poor</span>
+                    <span>4 - Excellent</span>
+                </div>
+                <div class="likert-options">
+                    ${[1, 2, 3, 4].map(value => `
+                        <label class="likert-option">
+                            <input type="radio" name="${name}" value="${value}" ${Number(selectedValue) === value ? 'checked' : ''} required>
+                            <span class="likert-circle">${value}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderChoiceOption(value, label, selectedValue) {
+        return `
+            <label class="choice-option">
+                <input type="radio" name="preferred_format" value="${escapeHtml(value)}" ${selectedValue === value ? 'checked' : ''} required>
+                <span>${escapeHtml(label)}</span>
+            </label>
+        `;
+    }
+
     function initAuditScreen() {
         DOM.auditForm.addEventListener('submit', handleNext);
         DOM.saveExitBtn.addEventListener('click', handleSaveAndExit);
     }
 
-    async function handleNext(e) {
-        e.preventDefault();
-        
-        // Validate
-        if (!validateCurrentResponse()) {
-            alert('Please fill in all required fields.');
-            return;
-        }
-        
-        // Collect response
-        const response = collectCurrentResponse();
-        const outputId = response.outputId;
-        
-        // Save response locally first
-        state.responses[outputId] = response;
-        saveState();
-        
-        // Show saving feedback
-        showSavingFeedback(true, 'Sending data to server...');
-        
-        // Disable navigation button during submission
-        DOM.nextBtn.disabled = true;
-        
+    async function handleNext(event) {
+        event.preventDefault();
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        setSubmittingState(true);
+
         try {
-            // Send to Google Apps Script
-            const result = await sendToGoogleScript(response);
-            
-            // Hide saving overlay
-            showSavingFeedback(false);
-            
-            // Re-enable button
-            DOM.nextBtn.disabled = false;
-            
-            if (result.success) {
-                // Show success toast
-                showSuccessToast('Data saved successfully!');
-                
-                // Small delay to let user see the success message
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Navigate
-                if (state.currentIndex < getTotalOutputs() - 1) {
-                    state.currentIndex++;
-                    saveState();
-                    renderCurrentOutput();
-                    // Scroll to top of right panel
-                    DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
-                } else {
-                    // Completed all
-                    showCompletionScreen();
+            if (state.phase === PHASES.DEMOGRAPHIC) {
+                const response = collectDemographicResponse();
+                if (!response) {
+                    alert('Please complete all required demographic fields.');
+                    return;
                 }
-            } else if (!result.skipped) {
-                // Show error but still allow navigation (data is saved locally)
-                console.warn('Backend save had issues, but data is saved locally');
-                showSuccessToast('Data saved locally.');
-                
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Navigate anyway (local save is successful)
-                if (state.currentIndex < getTotalOutputs() - 1) {
-                    state.currentIndex++;
-                    saveState();
-                    renderCurrentOutput();
-                    DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
-                } else {
-                    showCompletionScreen();
-                }
-            } else {
-                // Skipped (no URL configured) - just navigate
-                if (state.currentIndex < getTotalOutputs() - 1) {
-                    state.currentIndex++;
-                    saveState();
-                    renderCurrentOutput();
-                    DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
-                } else {
-                    showCompletionScreen();
-                }
-            }
-        } catch (error) {
-            console.error('Error during submission:', error);
-            showSavingFeedback(false);
-            
-            // Re-enable button
-            DOM.nextBtn.disabled = false;
-            
-            // Still allow navigation since data is saved locally
-            showSuccessToast('Data saved locally.');
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            if (state.currentIndex < getTotalOutputs() - 1) {
-                state.currentIndex++;
+                state.demographicResponse = response;
                 saveState();
-                renderCurrentOutput();
-                DOM.guidelinesContainer.closest('.panel-content').scrollTop = 0;
-            } else {
-                showCompletionScreen();
+                sendToGoogleScriptInBackground('DEMOGRAPHIC', response);
+                state.phase = PHASES.GT;
+            } else if (state.phase === PHASES.GT) {
+                const response = collectGtResponse(true);
+                if (!response) {
+                    alert('Please select a score for every guideline in this criterion.');
+                    return;
+                }
+
+                state.gtResponses[response.itemId] = response;
+                saveState();
+                sendToGoogleScriptInBackground('GT', response);
+                state.gtIndex++;
+
+                if (state.gtIndex >= currentItems.gt.length) {
+                    advanceToQualitative();
+                }
+            } else if (state.phase === PHASES.QUALITATIVE) {
+                const response = collectComparisonResponse();
+                if (!response) {
+                    alert('Please choose an answer and justify your choice.');
+                    return;
+                }
+
+                state.comparisonResponses[response.itemId] = response;
+                saveState();
+                sendToGoogleScriptInBackground('COMPARISON', response);
+                state.comparisonIndex++;
+
+                if (state.comparisonIndex >= currentItems.comparisons.length) {
+                    completeStudy();
+                }
             }
+
+            saveState();
+            renderCurrentStep();
+            DOM.formContainer.closest('.panel-content').scrollTop = 0;
+        } finally {
+            setSubmittingState(false);
+            isSubmitting = false;
         }
     }
 
+    function collectDemographicResponse(requireComplete = true) {
+        const course = DOM.formContainer.querySelector('#demographic-course')?.value.trim() || '';
+        const developmentExperience = DOM.formContainer.querySelector('#demographic-dev-exp')?.value || '';
+        const architectureAnalysisExperience = DOM.formContainer.querySelector('#demographic-arch-analysis-exp')?.value || '';
+        const microservicesExperience = DOM.formContainer.querySelector('#demographic-microservices-exp')?.value || '';
+        const qualityAttributesExperience = DOM.formContainer.querySelector('#demographic-quality-attr-exp')?.value || '';
+        const additionalBackground = DOM.formContainer.querySelector('#demographic-background')?.value.trim() || '';
+
+        const architectureTopics = Array.from(DOM.formContainer.querySelectorAll('input[name="demographic-topic"]:checked'))
+            .map(entry => entry.value);
+
+        const hasMissingRequired =
+            !course ||
+            !developmentExperience ||
+            !architectureAnalysisExperience ||
+            !microservicesExperience ||
+            !qualityAttributesExperience ||
+            architectureTopics.length === 0;
+
+        const hasAnyAnswer = course ||
+            developmentExperience ||
+            architectureAnalysisExperience ||
+            microservicesExperience ||
+            qualityAttributesExperience ||
+            additionalBackground ||
+            architectureTopics.length > 0;
+
+        if ((requireComplete && hasMissingRequired) || (!requireComplete && !hasAnyAnswer)) {
+            return null;
+        }
+
+        return {
+            itemId: `${state.submissionId}_demographic`,
+            recordType: 'DEMOGRAPHIC',
+            submissionId: state.submissionId,
+            expertId: state.userEmail,
+            participantId: state.submissionId,
+            currentCourse: course,
+            architectureTopics,
+            developmentExperience,
+            architectureAnalysisExperience,
+            microservicesExperience,
+            qualityAttributesExperience,
+            additionalBackground,
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    function setSubmittingState(isActive) {
+        DOM.nextBtn.disabled = isActive;
+        DOM.nextBtn.classList.toggle('is-loading', isActive);
+        DOM.nextBtn.textContent = isActive ? 'Saving...' : (isLastStep() ? 'Finish' : 'Next');
+
+        let indicator = DOM.auditForm.querySelector('.submit-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'submit-indicator';
+            indicator.innerHTML = '<span class="spinner"></span><span>Saving locally...</span>';
+            DOM.auditForm.appendChild(indicator);
+        }
+
+        indicator.style.display = isActive ? 'inline-flex' : 'none';
+    }
+
+    function sendToGoogleScriptInBackground(recordType, payload) {
+        sendToGoogleScript(recordType, payload).catch(error => {
+            console.error('Background save failed:', error);
+            showSuccessToast('Data saved locally.');
+        });
+    }
+
+    async function sendToGoogleScript(recordType, payload) {
+        if (!CONFIG.GOOGLE_SCRIPT_URL) {
+            console.log('Google Apps Script URL not configured. Data:', payload);
+            return { success: true, skipped: true };
+        }
+
+        const backendPayloads = recordType === 'GT_BATCH'
+            ? [payload]
+            : recordType === 'GT'
+                ? [prepareGtBatchPayload(payload)]
+                : recordType === 'DEMOGRAPHIC'
+                    ? [prepareDemographicPayload(payload)]
+                    : [prepareComparisonPayload(payload)];
+
+        try {
+            await Promise.all(backendPayloads.map(backendPayload =>
+                fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    keepalive: true,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(backendPayload)
+                })
+            ));
+            showSuccessToast('Data saved in background.');
+            return { success: true };
+        } catch (error) {
+            console.error('Error sending data:', error);
+            showSuccessToast('Data saved locally.');
+            return { success: false, error: error.message };
+        }
+    }
+
+    function collectGtResponse(requireComplete) {
+        const item = currentItems.gt[state.gtIndex];
+        if (!item) return null;
+
+        const guidelineResponses = item.criterion.guidelines.map(guideline => {
+            const scoreInput = DOM.formContainer.querySelector(`input[name="gt_score_${guideline.id}"]:checked`);
+
+            if (!scoreInput) return null;
+
+            return {
+                guideline: guideline.id,
+                humanGtScore: Number(scoreInput.value)
+            };
+        }).filter(Boolean);
+
+        if (requireComplete && guidelineResponses.length !== item.criterion.guidelines.length) return null;
+        if (!requireComplete && guidelineResponses.length === 0) return null;
+
+        return {
+            itemId: item.id,
+            recordType: 'GT',
+            submissionId: state.submissionId,
+            diagramId: item.diagramId,
+            expertId: state.userEmail,
+            criterion: item.criterionId,
+            guidelineResponses,
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    function collectComparisonResponse() {
+        const item = currentItems.comparisons[state.comparisonIndex];
+        const preferred = DOM.formContainer.querySelector('input[name="preferred_format"]:checked');
+        const justification = DOM.formContainer.querySelector('#comparison-justification').value.trim();
+        if (!item || !preferred || !justification) return null;
+        const displayOptions = getComparisonDisplayOptions(item);
+        const responseA = displayOptions.find(option => option.label === 'Response A');
+        const responseB = displayOptions.find(option => option.label === 'Response B');
+
+        return {
+            itemId: item.id,
+            recordType: 'COMPARISON',
+            submissionId: state.submissionId,
+            diagramId: item.diagramId,
+            expertId: state.userEmail,
+            model: item.model,
+            criterion: item.criterionId,
+            guideline: item.guideline.id,
+            preferredLabel: preferred.value,
+            preferredFormat: resolvePreferredFormat(item, preferred.value),
+            responseAOutputId: responseA.outputId,
+            responseAFormat: responseA.format,
+            responseBOutputId: responseB.outputId,
+            responseBFormat: responseB.format,
+            justification,
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    function resolvePreferredFormat(item, preferredLabel) {
+        if (preferredLabel === 'Tie') return 'Tie';
+        const option = getComparisonDisplayOptions(item).find(entry => entry.label === preferredLabel);
+        return option ? option.format : '';
+    }
+
+    function advanceToQualitative() {
+        state.phase = PHASES.QUALITATIVE;
+        state.comparisonIndex = state.comparisonIndex || 0;
+        saveState();
+    }
+
+    function completeStudy() {
+        state.phase = PHASES.COMPLETED;
+        saveState();
+        showCompletionScreen();
+    }
 
     function handleSaveAndExit() {
-        // Save current response
-        const response = collectCurrentResponse();
-        state.responses[response.outputId] = response;
+        const partialResponse = state.phase === PHASES.GT
+            ? collectGtResponse(false)
+            : state.phase === PHASES.QUALITATIVE
+                ? collectComparisonResponse()
+                : collectDemographicResponse(false);
+
+        if (partialResponse) {
+            if (state.phase === PHASES.GT) {
+                state.gtResponses[partialResponse.itemId] = partialResponse;
+            }
+            if (state.phase === PHASES.QUALITATIVE) {
+                state.comparisonResponses[partialResponse.itemId] = partialResponse;
+            }
+            if (state.phase === PHASES.DEMOGRAPHIC) {
+                state.demographicResponse = partialResponse;
+            }
+        }
+
         saveState();
-        
-        alert('Your progress has been saved! You can continue later using the same email.');
+        alert('Your progress has been saved. You can continue later using the same email.');
         showScreen('welcome');
-        
-        // Reset email input to show progress
         DOM.userEmail.value = state.userEmail;
         DOM.userEmail.dispatchEvent(new Event('input'));
     }
 
-    // =========================================
-    // Google Apps Script Integration
-    // =========================================
-    
-    /**
-     * Shows a loading/saving overlay with status message
-     */
-    function showSavingFeedback(show, message = 'Saving data...', isError = false) {
-        let overlay = document.getElementById('saving-overlay');
-        
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'saving-overlay';
-            overlay.innerHTML = `
-                <div class="saving-modal">
-                    <div class="saving-spinner"></div>
-                    <p class="saving-message"></p>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-        }
-        
-        const modal = overlay.querySelector('.saving-modal');
-        const messageEl = overlay.querySelector('.saving-message');
-        const spinner = overlay.querySelector('.saving-spinner');
-        
-        messageEl.textContent = message;
-        
-        if (isError) {
-            modal.classList.add('error');
-            spinner.style.display = 'none';
-        } else {
-            modal.classList.remove('error');
-            spinner.style.display = 'block';
-        }
-        
-        overlay.style.display = show ? 'flex' : 'none';
+    function prepareGtPayload(response, guidelineResponse) {
+        return {
+            Record_Type: 'GT',
+            Submission_ID: response.submissionId,
+            Diagram_ID: response.diagramId,
+            Expert_ID: response.expertId,
+            Criterion: response.criterion,
+            Guideline: guidelineResponse.guideline,
+            Human_GT_Score: guidelineResponse.humanGtScore,
+            Expert_Comment: '',
+            Timestamp: response.timestamp
+        };
     }
 
-    /**
-     * Shows a success toast notification
-     */
-    function showSuccessToast(message = 'Data saved successfully!') {
+    function prepareGtBatchPayload(response) {
+        return {
+            Record_Type: 'GT_BATCH',
+            Rows: response.guidelineResponses.map(guidelineResponse =>
+                prepareGtPayload(response, guidelineResponse)
+            )
+        };
+    }
+
+    function prepareComparisonPayload(response) {
+        return {
+            Record_Type: 'COMPARISON',
+            Submission_ID: response.submissionId,
+            Diagram_ID: response.diagramId,
+            Expert_ID: response.expertId,
+            Criterion: response.criterion,
+            Guideline: response.guideline,
+            Internal_Source_Group: response.model,
+            Preferred_Label: response.preferredLabel,
+            Preferred_Format: response.preferredFormat,
+            Response_A_Output_ID: response.responseAOutputId,
+            Response_A_Format: response.responseAFormat,
+            Response_B_Output_ID: response.responseBOutputId,
+            Response_B_Format: response.responseBFormat,
+            Comparison_Justification: response.justification,
+            Timestamp: response.timestamp
+        };
+    }
+
+    function prepareDemographicPayload(response) {
+        return {
+            Record_Type: 'DEMOGRAPHIC',
+            Submission_ID: response.submissionId,
+            Expert_ID: response.expertId,
+            Participant_ID: response.participantId,
+            Participant_Profile: response.currentCourse,
+            Architecture_Topics: response.architectureTopics.join(', '),
+            Development_Experience: response.developmentExperience,
+            Architecture_Analysis_Experience: response.architectureAnalysisExperience,
+            Microservices_Architecture_Experience: response.microservicesExperience,
+            Quality_Attributes_Tradeoffs_Experience: response.qualityAttributesExperience,
+            Additional_Background: response.additionalBackground,
+            Timestamp: response.timestamp
+        };
+    }
+
+    function showSuccessToast(message) {
         let toast = document.getElementById('success-toast');
-        
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'success-toast';
             toast.className = 'success-toast';
             document.body.appendChild(toast);
         }
-        
+
         toast.textContent = message;
         toast.classList.add('show');
-        
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 2500);
+        setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
-    /**
-     * Extracts LLM score number from score string like "4 (Excellent)"
-     */
-    function extractLLMScore(scoreString) {
-        if (!scoreString) return null;
-        const match = scoreString.match(/^(\d+)/);
-        return match ? parseInt(match[1]) : null;
-    }
-
-    /**
-     * Prepares payload for a single guideline submission
-     */
-    function prepareGuidelinePayload(outputData, guidelineResponse, guidelineData) {
-        const issues = guidelineResponse.issues || [];
-        
-        // Is_Factual_Correct = 1 if ONLY 'correct' is checked, 0 otherwise
-        const isFactualCorrect = (issues.length === 1 && issues.includes('correct')) ? 1 : 0;
-        
-        // Error flags: 1 if checked, 0 otherwise
-        const errHallucination = issues.includes('hallucination') ? 1 : 0;
-        const errOmission = issues.includes('omission') ? 1 : 0;
-        const errLogic = issues.includes('misinterpretation') ? 1 : 0; // Mapped to Err_Logic
-        const errContradiction = issues.includes('contradiction') ? 1 : 0;
-        const errVagueness = issues.includes('vagueness') ? 1 : 0;
-        const errOther = issues.includes('other') ? 1 : 0;
-        
-        return {
-            Output_ID: outputData.id,
-            Expert_ID: state.userEmail,
-            Model: outputData.model,
-            Input_Format: outputData.format,
-            Criterion: outputData.criterion,
-            Guideline: guidelineData.id,
-            LLM_Score: extractLLMScore(guidelineData.score),
-            Agreement_Score: guidelineResponse.likertScore,
-            Is_Factual_Correct: isFactualCorrect,
-            Err_Hallucination: errHallucination,
-            Err_Omission: errOmission,
-            Err_Logic: errLogic,
-            Err_Contradiction: errContradiction,
-            Err_Vagueness: errVagueness,
-            Err_Other: errOther,
-            Err_Other_Text: guidelineResponse.otherText || '',
-            Expert_Comment: guidelineResponse.comment || ''
-        };
-    }
-
-    /**
-     * Sends a single guideline data to the backend
-     */
-    async function sendGuidelineToBackend(payload) {
-        try {
-            // Using mode: 'no-cors' to handle CORS restrictions
-            // Note: With 'no-cors', we can't read the response, but the request will be sent
-            const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            // With 'no-cors', response.ok is always false and type is 'opaque'
-            // We assume success if no error was thrown
-            console.log('Guideline data sent:', payload.Guideline);
-            return { success: true };
-        } catch (error) {
-            console.error('Error sending guideline:', payload.Guideline, error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    /**
-     * Sends all guidelines for a response atomically
-     * Returns a promise that resolves when all are sent
-     */
-    async function sendToGoogleScript(response) {
-        // Skip if URL not configured
-        if (!CONFIG.GOOGLE_SCRIPT_URL || CONFIG.GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-            console.log('Google Apps Script URL not configured. Data:', response);
-            return Promise.resolve({ success: true, skipped: true });
-        }
-
-        const outputIndex = state.shuffledOrder[state.currentIndex];
-        const outputData = window.AEA_DATA.outputs[outputIndex];
-        
-        const promises = [];
-        
-        // Prepare and send each guideline
-        response.guidelines.forEach((guidelineResponse, idx) => {
-            const guidelineData = outputData.guidelines[idx];
-            const payload = prepareGuidelinePayload(outputData, guidelineResponse, guidelineData);
-            promises.push(sendGuidelineToBackend(payload));
-        });
-        
-        try {
-            const results = await Promise.all(promises);
-            const allSuccess = results.every(r => r.success);
-            
-            if (allSuccess) {
-                console.log('All guidelines sent successfully for output:', response.outputId);
-            } else {
-                console.warn('Some guidelines failed to send');
-            }
-            
-            return { success: allSuccess, results };
-        } catch (error) {
-            console.error('Error in batch send:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // =========================================
-    // Completion Screen Logic
-    // =========================================
-    
     function showCompletionScreen() {
-        DOM.finalCompletedCount.textContent = getCompletedCount();
         showScreen('completion');
     }
 
     function initCompletionScreen() {
-        DOM.restartBtn.addEventListener('click', handleRestart);
-    }
-
-    function handleRestart() {
-        // Clear state
-        clearState();
-        
-        // Reset state object
-        state = {
-            userEmail: null,
-            shuffledOrder: [],
-            currentIndex: 0,
-            responses: {},
-            startTime: null
-        };
-        
-        // Reset form
-        DOM.userEmail.value = '';
-        DOM.btnText.style.display = 'inline';
-        DOM.btnContinue.style.display = 'none';
-        DOM.progressInfo.style.display = 'none';
-        
-        // Show welcome screen
-        showScreen('welcome');
-    }
-
-    // =========================================
-    // Tutorial / Guided Tour
-    // =========================================
-
-    const TUTORIAL_SEEN_KEY = 'aea_tutorial_seen';
-
-    const TUTORIAL_STEPS = [
-        {
-            target: null,
-            title: 'Welcome!',
-            body: 'Quick walkthrough of the interface. This will only take a moment.',
-            position: 'center'
-        },
-        {
-            target: '.left-panel',
-            title: 'Reference material',
-            body: 'On the left you have the <strong>architecture diagram</strong> and its <strong>textual description</strong>. Use them to verify the analysis on the right.',
-            position: 'right'
-        },
-        {
-            target: '.llm-analysis',
-            title: 'The analysis',
-            body: 'This box contains the <strong>analysis you need to audit</strong>: a score and its justification.'
-                + '<span class="tutorial-emphasis">You are evaluating this text, not the diagram.</span>'
-                + 'Check whether it accurately reflects the reference material on the left.',
-            position: 'left',
-            scrollIntoView: true
-        },
-        {
-            target: '.likert-scale',
-            title: 'Your response',
-            body: 'Rate how much you <strong>agree</strong> with the assigned score based on the justification. Below, flag any issues you found in the text.',
-            position: 'left',
-            scrollIntoView: true
-        },
-        {
-            target: null,
-            title: 'All set!',
-            body: 'Click the <strong>?</strong> button in the bottom-right corner anytime to see this again.',
-            position: 'center'
-        }
-    ];
-
-    let tutorialState = { active: false, step: 0 };
-    let tutorialEls = {};
-
-    function createTutorialDOM() {
-        if (tutorialEls.overlay) return;
-
-        const overlay = document.createElement('div');
-        overlay.className = 'tutorial-overlay';
-        overlay.style.display = 'none';
-
-        const spotlight = document.createElement('div');
-        spotlight.className = 'tutorial-spotlight';
-        spotlight.style.display = 'none';
-
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tutorial-tooltip';
-        tooltip.style.display = 'none';
-        tooltip.innerHTML = `
-            <div class="tutorial-arrow"></div>
-            <div class="tutorial-tooltip-title"></div>
-            <div class="tutorial-tooltip-body"></div>
-            <div class="tutorial-nav">
-                <button class="tutorial-btn-skip">Skip</button>
-                <span class="tutorial-nav-step"></span>
-                <div class="tutorial-nav-buttons">
-                    <button class="btn btn-secondary btn-sm tutorial-btn-back">Back</button>
-                    <button class="btn btn-primary btn-sm tutorial-btn-next">Continue</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-        document.body.appendChild(spotlight);
-        document.body.appendChild(tooltip);
-
-        tutorialEls = {
-            overlay,
-            spotlight,
-            tooltip,
-            arrow: tooltip.querySelector('.tutorial-arrow'),
-            title: tooltip.querySelector('.tutorial-tooltip-title'),
-            body: tooltip.querySelector('.tutorial-tooltip-body'),
-            stepLabel: tooltip.querySelector('.tutorial-nav-step'),
-            btnBack: tooltip.querySelector('.tutorial-btn-back'),
-            btnNext: tooltip.querySelector('.tutorial-btn-next'),
-            btnSkip: tooltip.querySelector('.tutorial-btn-skip')
-        };
-
-        tutorialEls.btnNext.addEventListener('click', nextTutorialStep);
-        tutorialEls.btnBack.addEventListener('click', prevTutorialStep);
-        tutorialEls.btnSkip.addEventListener('click', endTutorial);
-        overlay.addEventListener('click', endTutorial);
-    }
-
-    function startTutorial() {
-        createTutorialDOM();
-        tutorialState = { active: true, step: 0 };
-        tutorialEls.overlay.style.display = 'block';
-        showTutorialStep(0);
-    }
-
-    function endTutorial() {
-        if (!tutorialState.active) return;
-        tutorialState.active = false;
-        tutorialEls.overlay.style.display = 'none';
-        tutorialEls.spotlight.style.display = 'none';
-        tutorialEls.tooltip.style.display = 'none';
-        localStorage.setItem(TUTORIAL_SEEN_KEY, '1');
-    }
-
-    function nextTutorialStep() {
-        if (tutorialState.step < TUTORIAL_STEPS.length - 1) {
-            showTutorialStep(tutorialState.step + 1);
-        } else {
-            endTutorial();
-        }
-    }
-
-    function prevTutorialStep() {
-        if (tutorialState.step > 0) {
-            showTutorialStep(tutorialState.step - 1);
-        }
-    }
-
-    function showTutorialStep(index) {
-        tutorialState.step = index;
-        const step = TUTORIAL_STEPS[index];
-
-        tutorialEls.title.textContent = step.title;
-        tutorialEls.body.innerHTML = step.body;
-        tutorialEls.stepLabel.textContent = `${index + 1} / ${TUTORIAL_STEPS.length}`;
-
-        tutorialEls.btnBack.style.display = index === 0 ? 'none' : 'inline-flex';
-        tutorialEls.btnNext.textContent = index === TUTORIAL_STEPS.length - 1 ? 'Got it' : 'Continue';
-
-        if (!step.target) {
-            positionCentered();
-        } else {
-            positionAtTarget(step);
-        }
-
-        tutorialEls.tooltip.style.display = 'block';
-    }
-
-    function positionCentered() {
-        tutorialEls.spotlight.className = 'tutorial-spotlight no-target';
-        tutorialEls.spotlight.style.display = 'block';
-        tutorialEls.spotlight.style.top = '50%';
-        tutorialEls.spotlight.style.left = '50%';
-        tutorialEls.spotlight.style.width = '0';
-        tutorialEls.spotlight.style.height = '0';
-
-        tutorialEls.arrow.className = 'tutorial-arrow';
-        tutorialEls.arrow.style.display = 'none';
-
-        const tt = tutorialEls.tooltip;
-        tt.style.top = '50%';
-        tt.style.left = '50%';
-        tt.style.transform = 'translate(-50%, -50%)';
-    }
-
-    function positionAtTarget(step) {
-        const el = document.querySelector(step.target);
-        if (!el) { positionCentered(); return; }
-
-        if (step.scrollIntoView) {
-            const panelContent = el.closest('.panel-content');
-            if (panelContent) {
-                const elTop = el.offsetTop - panelContent.offsetTop;
-                panelContent.scrollTo({ top: elTop - 40, behavior: 'instant' });
-            }
-        }
-
-        requestAnimationFrame(() => {
-            const rect = el.getBoundingClientRect();
-            const pad = 8;
-
-            const sl = tutorialEls.spotlight;
-            sl.className = 'tutorial-spotlight';
-            sl.style.display = 'block';
-            sl.style.top = (rect.top - pad) + 'px';
-            sl.style.left = (rect.left - pad) + 'px';
-            sl.style.width = (rect.width + pad * 2) + 'px';
-            sl.style.height = (rect.height + pad * 2) + 'px';
-
-            placeTooltip(rect, step.position);
+        DOM.restartBtn.addEventListener('click', function() {
+            clearState();
+            state = { ...stateDefaults };
+            DOM.userEmail.value = '';
+            DOM.btnText.style.display = 'inline';
+            DOM.btnContinue.style.display = 'none';
+            DOM.progressInfo.style.display = 'none';
+            showScreen('welcome');
         });
     }
 
-    function placeTooltip(targetRect, preferredPos) {
-        const tt = tutorialEls.tooltip;
-        const arrow = tutorialEls.arrow;
-        tt.style.transform = 'none';
-
-        tt.style.display = 'block';
-        const ttRect = tt.getBoundingClientRect();
-        const gap = 18;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        let top, left, arrowClass;
-
-        if (preferredPos === 'right') {
-            top = targetRect.top + targetRect.height / 2 - ttRect.height / 2;
-            left = targetRect.right + gap;
-            arrowClass = 'tutorial-arrow arrow-left';
-            if (left + ttRect.width > vw - 16) {
-                left = targetRect.left - ttRect.width - gap;
-                arrowClass = 'tutorial-arrow arrow-right';
-            }
-        } else {
-            left = targetRect.left - ttRect.width - gap;
-            top = targetRect.top;
-            arrowClass = 'tutorial-arrow arrow-right';
-            if (left < 16) {
-                left = targetRect.right + gap;
-                arrowClass = 'tutorial-arrow arrow-left';
-            }
-        }
-
-        top = Math.max(16, Math.min(top, vh - ttRect.height - 16));
-        left = Math.max(16, Math.min(left, vw - ttRect.width - 16));
-
-        tt.style.top = top + 'px';
-        tt.style.left = left + 'px';
-
-        arrow.className = arrowClass;
-        arrow.style.display = 'block';
-
-        const arrowTop = Math.max(18, Math.min(
-            targetRect.top + targetRect.height / 2 - top,
-            ttRect.height - 30
-        ));
-        arrow.style.top = arrowTop + 'px';
-    }
-
-    function initTutorial() {
-        const helpBtn = document.getElementById('tutorial-help-btn');
-        helpBtn.addEventListener('click', startTutorial);
-
-        window.addEventListener('resize', function() {
-            if (tutorialState.active) {
-                showTutorialStep(tutorialState.step);
-            }
-        });
-
-        document.addEventListener('keydown', function(e) {
-            if (!tutorialState.active) return;
-            if (e.key === 'Escape') endTutorial();
-            else if (e.key === 'ArrowRight') nextTutorialStep();
-            else if (e.key === 'ArrowLeft') prevTutorialStep();
-        });
-    }
-
-    function showHelpButton(visible) {
-        const btn = document.getElementById('tutorial-help-btn');
-        btn.style.display = visible ? 'block' : 'none';
-        if (visible && !localStorage.getItem(TUTORIAL_SEEN_KEY)) {
-            btn.classList.add('pulse');
-        }
-    }
-
-    function autoShowTutorialIfNeeded() {
-        if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) {
-            setTimeout(startTutorial, 400);
-        }
-    }
-
-    // =========================================
-    // Initialization
-    // =========================================
-    
     function init() {
         initWelcomeScreen();
         initAuditScreen();
         initCompletionScreen();
-        initTutorial();
-        
-        // Check URL params for direct access (optional)
-        const urlParams = new URLSearchParams(window.location.search);
-        const email = urlParams.get('email');
-        
-        if (email) {
-            DOM.userEmail.value = email;
-            DOM.userEmail.dispatchEvent(new Event('input'));
-        }
-        
         showScreen('welcome');
     }
 
-    // Start the application
     document.addEventListener('DOMContentLoaded', init);
-
 })();
