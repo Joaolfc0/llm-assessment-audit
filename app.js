@@ -525,7 +525,7 @@
 
         DOM.criterionName.textContent = item.criterion.name;
         DOM.criterionDescription.textContent = item.criterion.description;
-        DOM.phaseInstructions.textContent = 'Compare the two responses and justify which one is better.';
+        DOM.phaseInstructions.textContent = 'Compare the two responses and choose which one is better.';
 
         const response = state.comparisonResponses[item.id] || {};
         const options = getComparisonDisplayOptions(item);
@@ -550,7 +550,7 @@
 
                 <div class="comment-group">
                     <label class="question-label" for="comparison-justification">Justification</label>
-                    <textarea id="comparison-justification" class="comment-textarea" rows="4" required placeholder="Explain why this answer is better...">${escapeHtml(response.justification || '')}</textarea>
+                    <textarea id="comparison-justification" class="comment-textarea" rows="4" placeholder="Briefly explain your choice...">${escapeHtml(response.justification || '')}</textarea>
                 </div>
             </section>
         `;
@@ -686,7 +686,7 @@
             } else if (state.phase === PHASES.QUALITATIVE) {
                 const response = collectComparisonResponse();
                 if (!response) {
-                    alert('Please choose an answer and justify your choice.');
+                    alert('Please choose which response is better (or tie).');
                     return;
                 }
 
@@ -846,8 +846,8 @@
     function collectComparisonResponse() {
         const item = currentItems.comparisons[state.comparisonIndex];
         const preferred = DOM.formContainer.querySelector('input[name="preferred_format"]:checked');
-        const justification = DOM.formContainer.querySelector('#comparison-justification').value.trim();
-        if (!item || !preferred || !justification) return null;
+        const justification = DOM.formContainer.querySelector('#comparison-justification')?.value.trim() ?? '';
+        if (!item || !preferred) return null;
         const displayOptions = getComparisonDisplayOptions(item);
         const responseA = displayOptions.find(option => option.label === 'Response A');
         const responseB = displayOptions.find(option => option.label === 'Response B');
