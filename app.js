@@ -23,20 +23,25 @@
         PNG: 'PNG'
     };
 
-    const stateDefaults = {
-        submissionId: null,
-        userEmail: null,
-        diagramId: null,
-        phase: PHASES.DEMOGRAPHIC,
-        demographicResponse: null,
-        gtIndex: 0,
-        comparisonIndex: 0,
-        gtResponses: {},
-        comparisonResponses: {},
-        startedAt: null
-    };
+    function createInitialState(overrides = {}) {
+        return {
+            submissionId: null,
+            userEmail: null,
+            diagramId: null,
+            phase: PHASES.DEMOGRAPHIC,
+            demographicResponse: null,
+            gtIndex: 0,
+            comparisonIndex: 0,
+            gtResponses: {},
+            comparisonResponses: {},
+            startedAt: null,
+            ...overrides,
+            gtResponses: { ...(overrides.gtResponses || {}) },
+            comparisonResponses: { ...(overrides.comparisonResponses || {}) }
+        };
+    }
 
-    let state = { ...stateDefaults };
+    let state = createInitialState();
     let currentItems = {
         gt: [],
         comparisons: []
@@ -150,6 +155,18 @@
         localStorage.removeItem(CONFIG.STORAGE_KEY);
     }
 
+    function hasStoredStateForAnotherEmail(email) {
+        const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
+        if (!stored) return false;
+
+        try {
+            const data = JSON.parse(stored);
+            return data.userEmail && data.userEmail !== email;
+        } catch (error) {
+            return false;
+        }
+    }
+
     async function fetchDiagramCounts() {
         if (!CONFIG.GOOGLE_SCRIPT_URL) return null;
 
@@ -191,6 +208,7 @@
     function buildComparisonItems(diagram) {
         const outputs = getOutputsForDiagram(diagram);
         const items = [];
+        const criterionOrder = getCriterionEntries().map(([criterionId]) => criterionId);
 
         getCriterionEntries().forEach(([criterionId, criterion]) => {
             const models = [...new Set(outputs.map(output => output.model))].sort();
@@ -230,7 +248,33 @@
             });
         });
 
-        return items;
+        return interleaveByCriterion(items, criterionOrder);
+    }
+
+    function interleaveByCriterion(items, criterionOrder) {
+        const itemsByCriterion = new Map(criterionOrder.map(criterionId => [criterionId, []]));
+        items.forEach(item => {
+            if (!itemsByCriterion.has(item.criterionId)) {
+                itemsByCriterion.set(item.criterionId, []);
+            }
+            itemsByCriterion.get(item.criterionId).push(item);
+        });
+
+        const interleavedItems = [];
+        let hasPendingItems = true;
+
+        while (hasPendingItems) {
+            hasPendingItems = false;
+            criterionOrder.forEach(criterionId => {
+                const queue = itemsByCriterion.get(criterionId);
+                if (queue && queue.length > 0) {
+                    interleavedItems.push(queue.shift());
+                    hasPendingItems = true;
+                }
+            });
+        }
+
+        return interleavedItems;
     }
 
     function rebuildItems() {
@@ -293,15 +337,17 @@
 
         const existing = loadState(email);
         if (existing) {
-            state = {
-                ...stateDefaults,
+            state = createInitialState({
                 ...existing,
                 submissionId: existing.submissionId || createSubmissionId(email),
                 demographicResponse: existing.demographicResponse || null,
                 gtResponses: existing.gtResponses || {},
                 comparisonResponses: existing.comparisonResponses || {}
-            };
+            });
         } else {
+            if (hasStoredStateForAnotherEmail(email)) {
+                clearState();
+            }
             const submitButton = DOM.loginForm.querySelector('button[type="submit"]');
             submitButton.disabled = true;
             DOM.btnText.textContent = 'Loading...';
@@ -311,13 +357,12 @@
             submitButton.disabled = false;
             DOM.btnText.textContent = 'Start';
 
-            state = {
-                ...stateDefaults,
+            state = createInitialState({
                 submissionId: createSubmissionId(email),
                 userEmail: email,
                 diagramId: selectedDiagram.id,
                 startedAt: new Date().toISOString()
-            };
+            });
         }
 
         rebuildItems();
@@ -342,8 +387,17 @@
             state.comparisonIndex = Math.min(state.comparisonIndex || 0, currentItems.comparisons.length);
         }
 
-        if (state.phase === PHASES.QUALITATIVE && state.comparisonIndex >= currentItems.comparisons.length) {
-            state.phase = PHASES.COMPLETED;
+        if (state.phase === PHASES.QUALITATIVE) {
+            const nextUnansweredComparisonIndex = currentItems.comparisons.findIndex(
+                item => !state.comparisonResponses[item.id]
+            );
+
+            if (nextUnansweredComparisonIndex >= 0) {
+                state.comparisonIndex = nextUnansweredComparisonIndex;
+            } else {
+                state.comparisonIndex = currentItems.comparisons.length;
+                state.phase = PHASES.COMPLETED;
+            }
         }
     }
 
@@ -997,7 +1051,7 @@
     function initCompletionScreen() {
         DOM.restartBtn.addEventListener('click', function() {
             clearState();
-            state = { ...stateDefaults };
+            state = createInitialState();
             DOM.userEmail.value = '';
             DOM.btnText.style.display = 'inline';
             DOM.btnContinue.style.display = 'none';
