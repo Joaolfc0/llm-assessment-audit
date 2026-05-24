@@ -65,6 +65,9 @@
         leftPanel: document.querySelector('.left-panel'),
         rightPanel: document.querySelector('.right-panel'),
         diagramImage: document.getElementById('diagram-image'),
+        diagramLightbox: document.getElementById('diagram-lightbox'),
+        diagramLightboxImage: document.getElementById('diagram-lightbox-image'),
+        diagramLightboxClose: document.getElementById('diagram-lightbox-close'),
         descriptionContent: document.getElementById('description-content'),
         criterionName: document.getElementById('criterion-name'),
         criterionDescription: document.getElementById('criterion-description'),
@@ -702,6 +705,32 @@
     function initAuditScreen() {
         DOM.auditForm.addEventListener('submit', handleNext);
         DOM.saveExitBtn.addEventListener('click', handleSaveAndExit);
+        DOM.diagramImage.addEventListener('click', openDiagramLightbox);
+        DOM.diagramLightboxClose.addEventListener('click', closeDiagramLightbox);
+        DOM.diagramLightbox.addEventListener('click', function(event) {
+            if (event.target === DOM.diagramLightbox) {
+                closeDiagramLightbox();
+            }
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeDiagramLightbox();
+            }
+        });
+    }
+
+    function openDiagramLightbox() {
+        if (!DOM.diagramImage.src) return;
+        DOM.diagramLightboxImage.src = DOM.diagramImage.src;
+        DOM.diagramLightboxImage.alt = DOM.diagramImage.alt || 'Expanded architecture diagram';
+        DOM.diagramLightbox.classList.add('open');
+        DOM.diagramLightbox.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeDiagramLightbox() {
+        DOM.diagramLightbox.classList.remove('open');
+        DOM.diagramLightbox.setAttribute('aria-hidden', 'true');
+        DOM.diagramLightboxImage.src = '';
     }
 
     async function handleNext(event) {
