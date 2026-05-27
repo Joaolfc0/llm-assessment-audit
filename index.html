@@ -20,17 +20,17 @@
                     <p>This study is divided into three phases for a single assigned diagram. You may save and stop at any time, then continue later with the same email.</p>
 
                     <div class="flow-info">
-                        <h4>Phase 0: Demographics</h4>
+                        <h4>Phase 1: Demographics</h4>
                         <p>Provide background information about your academic and professional experience.</p>
                     </div>
 
                     <div class="flow-info">
-                        <h4>Phase 1: Ground truth</h4>
+                        <h4>Phase 2: Ground truth</h4>
                         <p>Review the diagram and description, then assign your own 1-4 score for every criterion guideline.</p>
                     </div>
 
                     <div class="task-info">
-                        <h4>Phase 2: Qualitative comparison</h4>
+                        <h4>Phase 3: Qualitative comparison</h4>
                         <p>Compare two anonymized responses for the same criterion. Choose the better response.</p>
                     </div>
                 </div>
@@ -67,7 +67,7 @@
     <div id="audit-screen" class="screen audit-screen" style="display: none;">
         <div class="progress-bar-container">
             <div class="progress-header">
-                <span class="progress-label" id="phase-label">Phase 1: Ground truth</span>
+                <span class="progress-label" id="phase-label">Phase 2: Ground truth</span>
                 <span class="progress-id" id="output-id">Diagram</span>
             </div>
             <div class="progress-actions">
@@ -126,6 +126,23 @@
             <p>Your responses have been saved.</p>
 
             <button id="restart-btn" class="btn btn-primary">Start new evaluation</button>
+        </div>
+    </div>
+
+    <div id="phase3-reminder" class="reminder-overlay" style="display: none;">
+        <div class="reminder-modal">
+            <h3 class="reminder-title">Before you begin Phase 3</h3>
+            <p class="reminder-text">
+                This is the last phase and the longest one. Your responses are extremely valuable to this research
+                — <strong>the more you answer, the more you help us</strong>.
+            </p>
+            <p class="reminder-text">
+                That said, you can stop at any time. Just click <strong>"Save and exit"</strong> at the top of the page
+                to save your progress and continue later with the same email.
+            </p>
+            <div class="reminder-actions">
+                <button id="phase3-reminder-ok" class="btn btn-primary" type="button">Got it, let's go</button>
+            </div>
         </div>
     </div>
 

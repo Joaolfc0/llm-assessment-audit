@@ -47,6 +47,7 @@
         comparisons: []
     };
     let isSubmitting = false;
+    let phase3ReminderShown = false;
 
     const DOM = {
         welcomeScreen: document.getElementById('welcome-screen'),
@@ -75,7 +76,9 @@
         formContainer: document.getElementById('form-container'),
         auditForm: document.getElementById('audit-form'),
         nextBtn: document.getElementById('next-btn'),
-        restartBtn: document.getElementById('restart-btn')
+        restartBtn: document.getElementById('restart-btn'),
+        phase3Reminder: document.getElementById('phase3-reminder'),
+        phase3ReminderOk: document.getElementById('phase3-reminder-ok')
     };
 
     function getData() {
@@ -377,6 +380,9 @@
         } else {
             showScreen('audit');
             renderCurrentStep();
+            if (state.phase === PHASES.QUALITATIVE) {
+                showPhase3Reminder();
+            }
         }
     }
 
@@ -432,11 +438,11 @@
     function updateStatusBar() {
         const diagram = getDiagram();
         if (state.phase === PHASES.DEMOGRAPHIC) {
-            DOM.phaseLabel.textContent = 'Phase 0: Demographics';
+            DOM.phaseLabel.textContent = 'Phase 1: Demographics';
         } else if (state.phase === PHASES.GT) {
-            DOM.phaseLabel.textContent = 'Phase 1: Ground truth';
+            DOM.phaseLabel.textContent = 'Phase 2: Ground truth';
         } else {
-            DOM.phaseLabel.textContent = 'Phase 2: Qualitative comparison';
+            DOM.phaseLabel.textContent = 'Phase 3: Qualitative comparison';
         }
         DOM.outputId.textContent = state.phase === PHASES.DEMOGRAPHIC
             ? 'Background questionnaire'
@@ -705,6 +711,9 @@
     function initAuditScreen() {
         DOM.auditForm.addEventListener('submit', handleNext);
         DOM.saveExitBtn.addEventListener('click', handleSaveAndExit);
+        DOM.phase3ReminderOk.addEventListener('click', function() {
+            DOM.phase3Reminder.style.display = 'none';
+        });
         DOM.diagramImage.addEventListener('click', openDiagramLightbox);
         DOM.diagramLightboxClose.addEventListener('click', closeDiagramLightbox);
         DOM.diagramLightbox.addEventListener('click', function(event) {
@@ -961,10 +970,17 @@
         return option ? option.format : '';
     }
 
+    function showPhase3Reminder() {
+        if (phase3ReminderShown) return;
+        phase3ReminderShown = true;
+        DOM.phase3Reminder.style.display = 'flex';
+    }
+
     function advanceToQualitative() {
         state.phase = PHASES.QUALITATIVE;
         state.comparisonIndex = state.comparisonIndex || 0;
         saveState();
+        showPhase3Reminder();
     }
 
     function completeStudy() {
